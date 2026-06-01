@@ -1,0 +1,85 @@
+"use client";
+
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { ArrowRight, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MatrixRain } from "@/components/matrix-rain";
+import { AuditTerminal } from "./audit-terminal";
+
+export function Hero() {
+  return (
+    <section className="relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 bg-grid" />
+      <MatrixRain className="pointer-events-none absolute inset-0 h-full w-full" opacity={0.12} />
+
+      <div className="relative mx-auto grid max-w-6xl gap-12 px-5 pb-20 pt-16 lg:grid-cols-2 lg:items-center lg:pt-24">
+        <div>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-5 inline-flex items-center gap-2 rounded-full border border-matrix-dim/50 bg-matrix/5 px-3 py-1 text-xs text-matrix-bright"
+          >
+            <Sparkles className="size-3.5" />
+            Autonomous QA for vibe-coded apps
+          </motion.div>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.05 }}
+            className="text-balance text-4xl font-bold leading-[1.08] tracking-tight text-fg sm:text-5xl lg:text-6xl"
+          >
+            Your AI QA agent after every{" "}
+            <span className="text-matrix text-glow">vibe-coded</span> deployment
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.12 }}
+            className="mt-5 max-w-xl text-lg text-fg-muted"
+          >
+            Paste a URL. A swarm of agents explores your app, clicks every button,
+            tests forms, and hunts functional, UI, UX, security and performance bugs —
+            then hands you a fix prompt ready to paste into Claude Code or Cursor.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.18 }}
+            className="mt-8 flex flex-wrap items-center gap-3"
+          >
+            <Link href="/signup">
+              <Button size="lg">
+                Run your first audit <ArrowRight />
+              </Button>
+            </Link>
+            <a href="#sample">
+              <Button size="lg" variant="outline">See a sample report</Button>
+            </a>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-fg-faint"
+          >
+            <span>Works with Cursor · Claude Code · Lovable · Bolt · v0 · Antigravity</span>
+          </motion.div>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.2 }}
+        >
+          <AuditTerminal />
+        </motion.div>
+      </div>
+    </section>
+  );
+}

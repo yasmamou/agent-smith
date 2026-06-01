@@ -1,0 +1,108 @@
+// Agent Smith — Prisma schema
+// Dev: SQLite (zero-setup). Production (Vercel): switch `provider` to
+// "postgresql" and point DATABASE_URL at Neon/Supabase. See README.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  plan         String   @default("free") // free | starter | pro | team
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  audits Audit[]
+}
+
+model Audit {
+  id             String   @id @default(cuid())
+  userId         String
+  targetUrl      String
+  status         String   @default("pending") // pending | running | completed | failed
+  mode           String   @default("standard") // quick | standard | deep
+  agentsCount    Int      @default(5)
+  durationMin    Int      @default(15)
+  instructions   String?
+  whitelistNotes String?
+  hasCredentials Boolean  @default(false)
+  engine         String?  // playwright | mock
+
+  // JSON blobs (stringified) — SQLite has no native JSON
+  scores         String?  // AuditScores
+  pagesVisited   String?  // PageVisit[]
+  timeline       String?  // TimelineEvent[]
+  uxSuggestions  String?  // string[]
+  summary        String?
+  reportMarkdown String?
+  fixPrompt      String?
+  errorMessage   String?
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  findings    AuditFinding[]
+  screenshots AuditScreenshot[]
+
+  @@index([userId])
+}
+
+model AuditFinding {
+  id                String  @id @default(cuid())
+  auditId           String
+  title             String
+  severity          String  // critical | high | medium | low | info
+  category          String  // functional | ui | ux | security | performance
+  description       String
+  evidence          String
+  reproductionSteps String  // JSON string[]
+  probableCause     String
+  recommendedFix    String
+  fixPromptBlock    String
+  agent             String
+
+  audit Audit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([auditId])
+}
+
+model AuditScreenshot {
+  id      String  @id @default(cuid())
+  auditId String
+  label   String
+  page    String
+  src     String  // data URI or path
+  caption String?
+
+  audit Audit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([auditId])
+}
+
+model AgentProfile {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  name        String
+  tagline     String
+  specialty   String
+  testingStyle String
+  price       String
+  priceNote   String
+  rating      Float   @default(5)
+  reviews     Int     @default(0)
+  accent      String
+  avatar      String
+  premium     Boolean @default(false)
+  focus       String  // JSON Category[]
+}
