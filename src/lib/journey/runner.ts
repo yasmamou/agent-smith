@@ -353,7 +353,8 @@ async function runAuthenticatedQuiz(
     await email.fill(creds.email).catch(() => {});
     await pass.fill(creds.password).catch(() => {});
     const submit = page.getByRole("button", { name: /connexion|se connecter|connecter|sign in|valider/i }).first();
-    await (submit.count() ? submit.click() : pass.press("Enter")).catch(() => {});
+    const hasSubmit = (await submit.count()) > 0;
+    await (hasSubmit ? submit.click() : pass.press("Enter")).catch(() => {});
     await page.waitForLoadState("networkidle", { timeout: 12000 }).catch(() => {});
     await page.waitForTimeout(1200);
     loggedIn = !/\/auth\//i.test(page.url());

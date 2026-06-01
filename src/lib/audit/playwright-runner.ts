@@ -73,14 +73,34 @@ const PAGE_ANALYSIS_FN = `() => {
   };
 }`;
 
-export async function playwrightCrawl(config: AuditConfig): Promise<CrawlResult> {
-  // dynamic import keeps playwright out of the serverless bundle path
+/**
+ * Launch Chromium for either environment:
+ *  - Serverless (Vercel): playwright-core + @sparticuz/chromium (slim binary).
+ *  - Local/dev: the full `playwright` package with its bundled browser.
+ * Returns a Playwright Browser regardless of which path is taken.
+ */
+async function launchBrowser() {
+  const isServerless = process.env.VERCEL === "1" || process.env.AWS_LAMBDA_FUNCTION_NAME != null;
+  if (isServerless) {
+    const sparticuz = (await import("@sparticuz/chromium")).default;
+    const { chromium } = await import("playwright-core");
+    return chromium.launch({
+      args: sparticuz.args,
+      executablePath: await sparticuz.executablePath(),
+      headless: true,
+    });
+  }
+  // local / dev — full playwright with its installed browser
   const { chromium } = await import("playwright");
+  return chromium.launch({ headless: true });
+}
+
+export async function playwrightCrawl(config: AuditConfig): Promise<CrawlResult> {
   const target = config.targetUrl;
   const https = target.startsWith("https://");
   const start = Date.now();
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchBrowser();
   const context = await browser.newContext({
     userAgent:
       "Mozilla/5.0 (AgentSmith QA Bot; +https://agentsmith.dev) Chrome/120 Safari/537.36",

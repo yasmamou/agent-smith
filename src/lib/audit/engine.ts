@@ -18,18 +18,18 @@ async function crawl(config: AuditConfig): Promise<CrawlResult> {
   const forced = process.env.AUDIT_ENGINE?.toLowerCase();
   if (forced === "mock") return mockCrawl(config);
 
-  // Try real Playwright; fall back to mock on any failure (no browser, serverless, etc.)
-  if (forced === "playwright" || process.env.NODE_ENV !== "production") {
-    try {
-      const { playwrightCrawl } = await import("./playwright-runner");
-      const result = await playwrightCrawl(config);
-      if (result.reachable && result.pages.length) return result;
-      // unreachable in real engine — keep the real (failed) result so we report it
-      if (forced === "playwright") return result;
-    } catch (err) {
-      if (forced === "playwright") throw err;
-      // otherwise silently fall through to mock
-    }
+  // Try the REAL browser engine everywhere (local: full playwright; serverless:
+  // playwright-core + @sparticuz/chromium). Fall back to the mock crawl on any
+  // failure so an audit always completes.
+  try {
+    const { playwrightCrawl } = await import("./playwright-runner");
+    const result = await playwrightCrawl(config);
+    if (result.reachable && result.pages.length) return result;
+    // unreachable with the real engine — keep the real result so we report it
+    if (forced === "playwright") return result;
+  } catch (err) {
+    if (forced === "playwright") throw err;
+    // otherwise fall through to the deterministic mock
   }
   return mockCrawl(config);
 }
