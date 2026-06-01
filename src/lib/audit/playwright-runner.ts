@@ -83,9 +83,11 @@ async function launchBrowser() {
   const isServerless = process.env.VERCEL === "1" || process.env.AWS_LAMBDA_FUNCTION_NAME != null;
   if (isServerless) {
     const sparticuz = (await import("@sparticuz/chromium")).default;
+    // Disable GPU/webgl graphics — reduces launch crashes on Lambda/Vercel.
+    sparticuz.setGraphicsMode = false;
     const { chromium } = await import("playwright-core");
     return chromium.launch({
-      args: sparticuz.args,
+      args: [...sparticuz.args, "--disable-gpu", "--no-zygote"],
       executablePath: await sparticuz.executablePath(),
       headless: true,
     });
