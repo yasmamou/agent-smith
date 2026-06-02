@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Zap, Gauge, Radar, ShieldAlert, ChevronRight, Lock } from "lucide-react";
+import { Zap, Gauge, Radar, ShieldAlert, ChevronRight, Lock, ScanSearch, Footprints } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea, Label } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { PERSONAS } from "@/lib/journey/personas";
 import type { AuditMode } from "@/types";
 
 const MODES: { key: AuditMode; label: string; desc: string; icon: typeof Zap }[] = [
@@ -14,8 +15,17 @@ const MODES: { key: AuditMode; label: string; desc: string; icon: typeof Zap }[]
   { key: "deep", label: "Deep Scan", desc: "up to 8 pages, thorough", icon: Radar },
 ];
 
+const TYPES = [
+  { key: "technical", label: "Audit technique", desc: "7 agents QA : fonctionnel, UI, UX, sécurité, perf", icon: ScanSearch },
+  { key: "persona", label: "Parcours utilisateur", desc: "Un agent-persona suit le funnel et note l'expérience", icon: Footprints },
+] as const;
+
+type AuditType = (typeof TYPES)[number]["key"];
+
 export default function NewAuditPage() {
   const router = useRouter();
+  const [auditType, setAuditType] = useState<AuditType>("technical");
+  const [persona, setPersona] = useState(PERSONAS[0].slug);
   const [mode, setMode] = useState<AuditMode>("standard");
   const [agentsCount, setAgentsCount] = useState(5);
   const [durationMinutes, setDurationMinutes] = useState(15);
@@ -35,6 +45,8 @@ export default function NewAuditPage() {
     const form = new FormData(e.currentTarget);
     const payload = {
       targetUrl: String(form.get("targetUrl") || "").trim(),
+      type: auditType,
+      persona: auditType === "persona" ? persona : undefined,
       mode,
       agentsCount,
       durationMinutes,
@@ -81,9 +93,59 @@ export default function NewAuditPage() {
           />
         </div>
 
-        {/* Mode */}
+        {/* Audit type */}
         <div>
-          <Label>Test mode</Label>
+          <Label>Type d&apos;audit</Label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {TYPES.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setAuditType(t.key)}
+                className={cn(
+                  "rounded-xl border p-4 text-left transition-all",
+                  auditType === t.key
+                    ? "border-matrix bg-matrix/5 shadow-[0_0_24px_-10px_var(--color-matrix)]"
+                    : "border-border bg-bg-elevated hover:border-border-bright"
+                )}
+              >
+                <t.icon className={cn("mb-2 size-5", auditType === t.key ? "text-matrix" : "text-fg-muted")} />
+                <p className="text-sm font-semibold text-fg">{t.label}</p>
+                <p className="mt-0.5 text-xs text-fg-faint">{t.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Persona picker (persona audits only) */}
+        {auditType === "persona" && (
+          <div>
+            <Label>Persona à incarner</Label>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {PERSONAS.map((p) => (
+                <button
+                  key={p.slug}
+                  type="button"
+                  onClick={() => setPersona(p.slug)}
+                  className={cn(
+                    "rounded-xl border p-3 text-left transition-all",
+                    persona === p.slug
+                      ? "border-matrix bg-matrix/5"
+                      : "border-border bg-bg-elevated hover:border-border-bright"
+                  )}
+                >
+                  <span className="text-xl">{p.avatar}</span>
+                  <p className="mt-1 text-sm font-semibold text-fg">{p.name.split(" — ")[0]}</p>
+                  <p className="text-xs text-fg-faint">{p.name.split(" — ")[1] || ""}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Mode */}
+        <div className={cn(auditType === "persona" && "opacity-60")}>
+          <Label>Test mode {auditType === "persona" && <span className="text-fg-faint">(audit technique)</span>}</Label>
           <div className="grid gap-3 sm:grid-cols-3">
             {MODES.map((m) => (
               <button

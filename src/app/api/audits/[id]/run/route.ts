@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/client";
-import { setAuditStatus, persistReport } from "@/lib/db/audits";
+import { setAuditStatus, persistReport, persistJourney } from "@/lib/db/audits";
 import { runAudit } from "@/lib/audit/engine";
+import { runPersonaJourney } from "@/lib/journey/runner";
+import { getPersona, PERSONAS } from "@/lib/journey/personas";
 import type { AuditConfig, AuditMode } from "@/types";
 
 // Audits can run for a while (real crawl). Allow up to 5 minutes.
@@ -25,16 +27,30 @@ export async function POST(
 
   await setAuditStatus(id, "running");
 
-  const config: AuditConfig = {
-    targetUrl: audit.targetUrl,
-    mode: audit.mode as AuditMode,
-    agentsCount: audit.agentsCount,
-    durationMinutes: audit.durationMin,
-    instructions: audit.instructions ?? undefined,
-    whitelistNotes: audit.whitelistNotes ?? undefined,
-  };
-
   try {
+    // ---- Persona / authenticated journey ----
+    if (audit.type === "persona" || audit.type === "authenticated") {
+      const persona = getPersona(audit.persona || "") ?? PERSONAS[0];
+      const journey = await runPersonaJourney(audit.targetUrl, persona, {});
+      await persistJourney(id, journey);
+      return NextResponse.json({
+        ok: true,
+        status: "completed",
+        type: audit.type,
+        experienceScore: journey.experienceScore,
+        gated: journey.gated,
+      });
+    }
+
+    // ---- Technical QA audit ----
+    const config: AuditConfig = {
+      targetUrl: audit.targetUrl,
+      mode: audit.mode as AuditMode,
+      agentsCount: audit.agentsCount,
+      durationMinutes: audit.durationMin,
+      instructions: audit.instructions ?? undefined,
+      whitelistNotes: audit.whitelistNotes ?? undefined,
+    };
     const report = await runAudit(config);
     await persistReport(id, report);
     return NextResponse.json({

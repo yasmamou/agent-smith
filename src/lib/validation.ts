@@ -17,6 +17,8 @@ export const createAuditSchema = z.object({
     .trim()
     .url("Enter a valid URL (including https://)")
     .refine((u) => /^https?:\/\//.test(u), "URL must start with http:// or https://"),
+  type: z.enum(["technical", "persona", "authenticated"]).default("technical"),
+  persona: z.string().max(40).optional(),
   mode: z.enum(["quick", "standard", "deep"]).default("standard"),
   agentsCount: z.coerce.number().int().min(1).max(10).default(5),
   durationMinutes: z.coerce.number().int().min(1).max(60).default(15),

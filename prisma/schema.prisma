@@ -28,6 +28,8 @@ model Audit {
   userId         String
   targetUrl      String
   status         String   @default("pending") // pending | running | completed | failed
+  type           String   @default("technical") // technical | persona | authenticated
+  persona        String?  // persona slug (for persona/authenticated audits)
   mode           String   @default("standard") // quick | standard | deep
   agentsCount    Int      @default(5)
   durationMin    Int      @default(15)
@@ -35,6 +37,9 @@ model Audit {
   whitelistNotes String?
   hasCredentials Boolean  @default(false)
   engine         String?  // playwright | mock
+
+  // persona/authenticated journey result (JSON JourneyResult)
+  journeyData    String?
 
   // JSON blobs (stringified) — SQLite has no native JSON
   scores         String?  // AuditScores

@@ -1,5 +1,6 @@
 import type { CrawlResult, CrawlPage, CrawlCookie } from "./crawl-types";
 import type { AuditConfig } from "@/types";
+import { launchSession } from "@/lib/browser/session";
 
 /**
  * Real browser crawl via Playwright. Imported dynamically so the app builds
@@ -72,55 +73,6 @@ const PAGE_ANALYSIS_FN = `() => {
       .slice(0, 40),
   };
 }`;
-
-interface Session {
-  browser: { close: () => Promise<void> };
-  context: import("playwright-core").BrowserContext;
-}
-
-/**
- * Open a browser session for the current environment:
- *  - BROWSERBASE_API_KEY set → connect to a hosted Chrome over CDP (works on
- *    serverless: no system libs needed). This is how prod runs real audits.
- *  - Local/dev → the full `playwright` package with its bundled browser.
- *  - Serverless without Browserbase → playwright-core + @sparticuz/chromium
- *    (note: bare Vercel lacks libnss3, so this path usually fails → mock).
- */
-async function launchSession(): Promise<Session> {
-  const bbKey = process.env.BROWSERBASE_API_KEY;
-  if (bbKey) {
-    const projectId = process.env.BROWSERBASE_PROJECT_ID || "";
-    const { chromium } = await import("playwright-core");
-    const wsUrl = `wss://connect.browserbase.com?apiKey=${bbKey}${projectId ? `&projectId=${projectId}` : ""}`;
-    const browser = await chromium.connectOverCDP(wsUrl);
-    // Browserbase provisions a ready context — reuse it.
-    const context = browser.contexts()[0] ?? (await browser.newContext());
-    return { browser, context };
-  }
-
-  const isServerless = process.env.VERCEL === "1" || process.env.AWS_LAMBDA_FUNCTION_NAME != null;
-  if (isServerless) {
-    const sparticuz = (await import("@sparticuz/chromium")).default;
-    sparticuz.setGraphicsMode = false;
-    const { chromium } = await import("playwright-core");
-    const browser = await chromium.launch({
-      args: [...sparticuz.args, "--disable-gpu", "--no-zygote"],
-      executablePath: await sparticuz.executablePath(),
-      headless: true,
-    });
-    const context = await browser.newContext({ ignoreHTTPSErrors: true });
-    return { browser, context };
-  }
-
-  // local / dev — full playwright with its installed browser
-  const { chromium } = await import("playwright");
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({
-    userAgent: "Mozilla/5.0 (AgentSmith QA Bot; +https://agentsmith.dev) Chrome/120 Safari/537.36",
-    ignoreHTTPSErrors: true,
-  });
-  return { browser, context };
-}
 
 export async function playwrightCrawl(config: AuditConfig): Promise<CrawlResult> {
   const target = config.targetUrl;

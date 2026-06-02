@@ -6,11 +6,17 @@ import type { AuditReport, AuditConfig, AuditStatus, Finding, AuditScores } from
  * boolean `hasCredentials` is stored.
  */
 
-export async function createAudit(userId: string, config: AuditConfig) {
+export async function createAudit(
+  userId: string,
+  config: AuditConfig,
+  extra?: { type?: string; persona?: string }
+) {
   return prisma.audit.create({
     data: {
       userId,
       targetUrl: config.targetUrl,
+      type: extra?.type || "technical",
+      persona: extra?.persona || null,
       mode: config.mode,
       agentsCount: config.agentsCount,
       durationMin: config.durationMinutes,
@@ -76,6 +82,45 @@ export async function persistReport(auditId: string, report: AuditReport) {
         src: s.src,
         caption: s.caption || null,
       })),
+    }),
+  ]);
+}
+
+export async function persistJourney(
+  auditId: string,
+  journey: import("@/lib/journey/types").JourneyResult
+) {
+  const scores = {
+    overall: journey.experienceScore,
+    functional: journey.experienceScore,
+    ui: journey.experienceScore,
+    ux: journey.experienceScore,
+    security: journey.experienceScore,
+    performance: journey.experienceScore,
+  };
+  await prisma.$transaction([
+    prisma.auditScreenshot.deleteMany({ where: { auditId } }),
+    prisma.audit.update({
+      where: { id: auditId },
+      data: {
+        status: "completed",
+        engine: "playwright",
+        scores: JSON.stringify(scores),
+        summary: journey.narrative,
+        journeyData: JSON.stringify(journey),
+        completedAt: new Date(),
+      },
+    }),
+    prisma.auditScreenshot.createMany({
+      data: journey.steps
+        .filter((s) => s.screenshot)
+        .map((s) => ({
+          auditId,
+          label: `${s.index}. ${s.title}`,
+          page: s.url,
+          src: s.screenshot!,
+          caption: `${s.status} · ${s.rating}/5`,
+        })),
     }),
   ]);
 }

@@ -50,6 +50,9 @@ export default async function AuditDetailPage({
     })),
     createdAt: audit.createdAt.toISOString(),
     completedAt: audit.completedAt?.toISOString() ?? null,
+    type: audit.type,
+    persona: audit.persona,
+    journeyData: audit.journeyData ? parseJson<import("@/lib/journey/types").JourneyResult | null>(audit.journeyData, null) : null,
   };
 
   return (

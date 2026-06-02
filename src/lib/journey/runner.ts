@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import type { Page } from "playwright-core";
 import type { Persona } from "./personas";
 import type { JourneyStep, JourneyResult, StepStatus, QuizAttempt } from "./types";
+import { launchSession } from "@/lib/browser/session";
 
 /**
  * Persona journey runner — drives a real Chromium session AS a user, follows
@@ -47,23 +47,14 @@ const QUIZ_VERDICT_FN = `(() => {
 })()`;
 
 interface RunOpts {
-  screenshotDir: string;
+  /** optional dir to also persist screenshots on disk (local only) */
+  screenshotDir?: string;
   /** optional test credentials for the authenticated (QCM) journey */
   creds?: { email: string; password: string };
   headless?: boolean;
 }
 
-type PWPage = Awaited<ReturnType<Awaited<ReturnType<typeof newCtx>>["newPage"]>>;
-async function newCtx(target: string, headless: boolean) {
-  const { chromium } = await import("playwright");
-  const browser = await chromium.launch({ headless });
-  const context = await browser.newContext({
-    viewport: { width: 1366, height: 850 },
-    userAgent: "Mozilla/5.0 (AgentSmith QA Persona Bot; +https://agentsmith.dev) Chrome/120 Safari/537.36",
-    ignoreHTTPSErrors: true,
-  });
-  return Object.assign(context, { __browser: browser });
-}
+type PWPage = Page;
 
 function ratingFromSignals(found: boolean, loadMs: number, errors: number, gated = false): number {
   let r = 5;
@@ -81,9 +72,11 @@ export async function runPersonaJourney(
   opts: RunOpts
 ): Promise<JourneyResult> {
   const start = Date.now();
-  const headless = opts.headless ?? true;
-  const ctx = await newCtx(target, headless);
-  const page = (await ctx.newPage()) as PWPage;
+  const { browser, context } = await launchSession({
+    viewport: { width: 1366, height: 850 },
+    userAgent: "Mozilla/5.0 (AgentSmith QA Persona Bot; +https://agentsmith.dev) Chrome/120 Safari/537.36",
+  });
+  const page = (await context.newPage()) as PWPage;
 
   const steps: JourneyStep[] = [];
   let gated = false;
@@ -94,11 +87,23 @@ export async function runPersonaJourney(
   page.on("console", (m) => m.type() === "error" && consoleErrors.push(m.text()));
 
   const shot = async (slug: string, idx: number, name: string) => {
-    const file = join(opts.screenshotDir, `${slug}-${idx}-${name}.png`);
     try {
-      await page.screenshot({ path: file });
-      const b64 = readFileSync(file).toString("base64");
-      return { file, data: `data:image/png;base64,${b64}` };
+      // capture to buffer (no disk needed — serverless safe)
+      const buf = await page.screenshot();
+      const data = `data:image/png;base64,${buf.toString("base64")}`;
+      let file: string | undefined;
+      if (opts.screenshotDir) {
+        // also persist to disk when running locally (for the PDF scripts)
+        try {
+          const { join } = await import("node:path");
+          const { writeFileSync } = await import("node:fs");
+          file = join(opts.screenshotDir, `${slug}-${idx}-${name}.png`);
+          writeFileSync(file, buf);
+        } catch {
+          file = undefined;
+        }
+      }
+      return { file, data };
     } catch {
       return { file: undefined, data: undefined };
     }
@@ -292,8 +297,7 @@ export async function runPersonaJourney(
       observations: [err instanceof Error ? err.message : "Erreur inconnue"],
     });
   } finally {
-    const browser = (ctx as unknown as { __browser: { close: () => Promise<void> } }).__browser;
-    await ctx.close().catch(() => {});
+    await context.close().catch(() => {});
     await browser.close().catch(() => {});
   }
 

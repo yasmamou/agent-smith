@@ -20,6 +20,7 @@ import { CopyButton } from "@/components/copy-button";
 import { MatrixRain } from "@/components/matrix-rain";
 import { SeverityBadge } from "@/components/severity-badge";
 import { safeHost, cn } from "@/lib/utils";
+import type { JourneyResult } from "@/lib/journey/types";
 
 export interface AuditDetailData {
   id: string;
@@ -39,6 +40,9 @@ export interface AuditDetailData {
   screenshots: ScreenshotRef[];
   createdAt: string;
   completedAt: string | null;
+  type?: string;
+  persona?: string | null;
+  journeyData?: JourneyResult | null;
 }
 
 const AGENT_STEPS = [
@@ -112,8 +116,118 @@ export function AuditDetail({ initial }: { initial: AuditDetailData }) {
     );
   }
 
+  if (audit.type === "persona" && audit.journeyData) {
+    return <JourneyView audit={audit} journey={audit.journeyData} onRerun={run} onDelete={remove} />;
+  }
+
   return (
     <ReportView audit={audit} onRerun={run} onDelete={remove} />
+  );
+}
+
+/* ------------------- Persona journey view ------------------- */
+function Stars({ r }: { r: number }) {
+  const full = Math.floor(r);
+  const half = r - full >= 0.5;
+  return (
+    <span className="text-medium">
+      {"★".repeat(full)}
+      {half ? "½" : ""}
+      <span className="text-fg-faint">{"☆".repeat(Math.max(0, 5 - full - (half ? 1 : 0)))}</span>
+    </span>
+  );
+}
+
+const JSTATUS: Record<string, string> = {
+  success: "text-matrix",
+  partial: "text-medium",
+  gated: "text-high",
+  blocked: "text-critical",
+};
+
+function JourneyView({
+  audit,
+  journey,
+  onRerun,
+  onDelete,
+}: {
+  audit: AuditDetailData;
+  journey: JourneyResult;
+  onRerun: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <a href={audit.targetUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 font-mono text-lg text-fg hover:text-matrix">
+            {safeHost(audit.targetUrl)} <ExternalLink className="size-4" />
+          </a>
+          <p className="mt-1 text-sm text-fg-muted">
+            Parcours persona · {journey.personaAvatar} {journey.personaName}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="ghost" onClick={onRerun} title="Re-run"><RotateCw /></Button>
+          <Button variant="ghost" onClick={onDelete} title="Delete"><Trash2 /></Button>
+        </div>
+      </div>
+
+      <div className="mb-6 grid gap-5 lg:grid-cols-[auto_1fr]">
+        <div className="glass-bright flex items-center gap-6 rounded-2xl p-6">
+          <ScoreRing score={journey.experienceScore} label="Expérience" />
+          <div className="text-center">
+            <div className="text-2xl"><Stars r={journey.avgRating} /></div>
+            <p className="mt-1 text-xs text-fg-faint">{journey.avgRating}/5 moyen</p>
+            {journey.gated && (
+              <p className="mt-2 inline-flex items-center gap-1 rounded-full border border-high/40 bg-high/10 px-2 py-0.5 text-xs text-high">
+                <ShieldAlert className="size-3.5" /> Features derrière compte
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="glass rounded-2xl p-6">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-fg-faint">Ressenti de l&apos;agent</h2>
+          <p className="text-sm leading-relaxed text-fg-muted">{journey.narrative}</p>
+          {journey.gatedNote && <p className="mt-3 rounded-lg border border-high/30 bg-high/5 px-3 py-2 text-xs text-fg-muted">{journey.gatedNote}</p>}
+        </div>
+      </div>
+
+      <h2 className="mb-4 text-lg font-semibold text-fg">Étapes du parcours</h2>
+      <div className="space-y-4">
+        {journey.steps.map((s) => (
+          <div key={s.index} className="glass overflow-hidden rounded-xl sm:flex">
+            {s.screenshot && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={s.screenshot} alt={s.title} className="w-full border-b border-border sm:w-72 sm:border-b-0 sm:border-r" />
+            )}
+            <div className="flex-1 p-4">
+              <div className="mb-1 flex items-center gap-2 text-xs">
+                <span className="rounded-md bg-surface px-1.5 py-0.5 text-fg-faint">Étape {s.index}</span>
+                <span className={cn("font-semibold uppercase", JSTATUS[s.status])}>{s.status}</span>
+                <Stars r={s.rating} />
+                <span className="text-fg-faint">{(s.loadMs / 1000).toFixed(1)}s</span>
+              </div>
+              <p className="font-semibold text-fg">{s.title}</p>
+              <p className="text-xs text-fg-faint">{s.action}</p>
+              <ul className="mt-2 space-y-1">
+                {s.observations.map((o, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-fg-muted">
+                    <span className="mt-1.5 size-1 shrink-0 rounded-full bg-matrix" />
+                    {o}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-8 flex items-center justify-center gap-2 text-center text-xs text-fg-faint">
+        <ShieldAlert className="size-3.5" />
+        Parcours non-destructif. Tester uniquement des sites autorisés.
+      </p>
+    </motion.div>
   );
 }
 

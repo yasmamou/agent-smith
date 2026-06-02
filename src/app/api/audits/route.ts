@@ -38,6 +38,9 @@ export async function POST(req: Request) {
     apiKey: data.apiKey,
   };
 
-  const audit = await createAudit(session.userId, config);
+  const audit = await createAudit(session.userId, config, {
+    type: data.type,
+    persona: data.persona,
+  });
   return NextResponse.json({ ok: true, id: audit.id });
 }
