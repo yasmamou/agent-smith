@@ -11,11 +11,20 @@ export async function createAudit(
   config: AuditConfig,
   extra?: { type?: string; persona?: string }
 ) {
+  const type = extra?.type || "technical";
+  const hasCreds = !!(config.login && config.password);
+  // For authenticated audits, store credentials ENCRYPTED (AES-GCM) — used only
+  // at run time, never in clear, cleared after the run.
+  let credEnc: string | null = null;
+  if (type === "authenticated" && hasCreds) {
+    const { encryptJson } = await import("@/lib/security/crypto");
+    credEnc = encryptJson({ email: config.login, password: config.password });
+  }
   return prisma.audit.create({
     data: {
       userId,
       targetUrl: config.targetUrl,
-      type: extra?.type || "technical",
+      type,
       persona: extra?.persona || null,
       mode: config.mode,
       agentsCount: config.agentsCount,
@@ -23,6 +32,7 @@ export async function createAudit(
       instructions: config.instructions || null,
       whitelistNotes: config.whitelistNotes || null,
       hasCredentials: !!(config.login || config.password || config.apiKey),
+      credEnc,
       status: "pending",
     },
   });

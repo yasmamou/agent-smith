@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Zap, Gauge, Radar, ShieldAlert, ChevronRight, Lock, ScanSearch, Footprints } from "lucide-react";
+import { Zap, Gauge, Radar, ShieldAlert, ChevronRight, Lock, ScanSearch, Footprints, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea, Label } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,7 @@ const MODES: { key: AuditMode; label: string; desc: string; icon: typeof Zap }[]
 const TYPES = [
   { key: "technical", label: "Audit technique", desc: "7 agents QA : fonctionnel, UI, UX, sécurité, perf", icon: ScanSearch },
   { key: "persona", label: "Parcours utilisateur", desc: "Un agent-persona suit le funnel et note l'expérience", icon: Footprints },
+  { key: "authenticated", label: "Audit authentifié", desc: "L'agent se connecte et teste les features (QCM) — IA", icon: KeyRound },
 ] as const;
 
 type AuditType = (typeof TYPES)[number]["key"];
@@ -38,15 +39,20 @@ export default function NewAuditPage() {
     e.preventDefault();
     setError(null);
     if (!authorized) {
-      setError("Please confirm you are authorized to test this site.");
+      setError("Confirme que tu es autorisé à tester ce site.");
+      return;
+    }
+    const form = new FormData(e.currentTarget);
+    if (auditType === "authenticated" && (!String(form.get("login") || "") || !String(form.get("password") || ""))) {
+      setShowAdvanced(true);
+      setError("Un audit authentifié nécessite un email + mot de passe de test.");
       return;
     }
     setLoading(true);
-    const form = new FormData(e.currentTarget);
     const payload = {
       targetUrl: String(form.get("targetUrl") || "").trim(),
       type: auditType,
-      persona: auditType === "persona" ? persona : undefined,
+      persona: auditType !== "technical" ? persona : undefined,
       mode,
       agentsCount,
       durationMinutes,
@@ -96,7 +102,7 @@ export default function NewAuditPage() {
         {/* Audit type */}
         <div>
           <Label>Type d&apos;audit</Label>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             {TYPES.map((t) => (
               <button
                 key={t.key}
@@ -117,8 +123,8 @@ export default function NewAuditPage() {
           </div>
         </div>
 
-        {/* Persona picker (persona audits only) */}
-        {auditType === "persona" && (
+        {/* Persona picker (persona & authenticated audits) */}
+        {auditType !== "technical" && (
           <div>
             <Label>Persona à incarner</Label>
             <div className="grid gap-2 sm:grid-cols-3">
@@ -229,15 +235,21 @@ export default function NewAuditPage() {
             className="flex w-full items-center justify-between px-4 py-3 text-sm text-fg-muted hover:text-fg"
           >
             <span className="inline-flex items-center gap-2">
-              <Lock className="size-4" /> Credentials &amp; access (optional)
+              <Lock className="size-4" /> Identifiants &amp; accès{" "}
+              {auditType === "authenticated" ? (
+                <span className="text-high">(requis pour l&apos;audit authentifié)</span>
+              ) : (
+                "(optionnel)"
+              )}
             </span>
-            <ChevronRight className={cn("size-4 transition-transform", showAdvanced && "rotate-90")} />
+            <ChevronRight className={cn("size-4 transition-transform", (showAdvanced || auditType === "authenticated") && "rotate-90")} />
           </button>
-          {showAdvanced && (
+          {(showAdvanced || auditType === "authenticated") && (
             <div className="space-y-4 border-t border-border px-4 py-4">
               <p className="rounded-lg border border-matrix-dim/30 bg-matrix/5 px-3 py-2 text-xs text-fg-muted">
-                Credentials are used only for this run and are <strong>never stored in clear</strong> or
-                logged. Only a &quot;has credentials&quot; flag is saved.
+                {auditType === "authenticated"
+                  ? "Utilise un compte de TEST dédié. Les identifiants sont chiffrés (AES-GCM), utilisés seulement pour ce run, puis effacés."
+                  : "Les identifiants ne sont jamais stockés en clair ni loggés. Seul un indicateur « a des identifiants » est conservé."}
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>

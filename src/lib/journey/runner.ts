@@ -2,6 +2,7 @@ import type { Page } from "playwright-core";
 import type { Persona } from "./personas";
 import type { JourneyStep, JourneyResult, StepStatus, QuizAttempt } from "./types";
 import { launchSession } from "@/lib/browser/session";
+import { aiEnabled, aiComplete } from "@/lib/ai/provider";
 
 /**
  * Persona journey runner — drives a real Chromium session AS a user, follows
@@ -163,6 +164,9 @@ export async function runPersonaJourney(
       }
     }
 
+    // 3-6) Public funnel — skipped for authenticated audits (go straight to
+    // login + product, to preserve the target's rate-limit budget).
+    if (!opts.creds) {
     // 3) Choose persona profile (if a selector exists)
     if (persona.profileMatch) {
       t0 = Date.now();
@@ -280,6 +284,7 @@ export async function runPersonaJourney(
         "signup-form"
       );
     }
+    } // end public funnel (skipped when authenticated)
 
     // 7) Authenticated deep journey — QCM (only with test creds)
     if (opts.creds) {
@@ -349,18 +354,30 @@ async function runAuthenticatedQuiz(
   // Login
   let t0 = Date.now();
   await page.goto(new URL("/auth/signin", page.url()).href, { waitUntil: "domcontentloaded" }).catch(() => {});
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(800);
+  // accept cookie banner if it reappeared (can cover the form)
+  for (const re of [/^tout accepter$/i, /^accepter$/i, /^j'accepte$/i]) {
+    const e = page.getByRole("button", { name: re }).first();
+    if (await e.count()) {
+      await e.click().catch(() => {});
+      await page.waitForTimeout(300);
+      break;
+    }
+  }
   const email = page.locator('input[type="email"], input[name*="mail" i]').first();
   const pass = page.locator('input[type="password"]').first();
   let loggedIn = false;
   if ((await email.count()) && (await pass.count())) {
     await email.fill(creds.email).catch(() => {});
     await pass.fill(creds.password).catch(() => {});
-    const submit = page.getByRole("button", { name: /connexion|se connecter|connecter|sign in|valider/i }).first();
+    // exact "Se connecter" submit — avoid matching "Se connecter avec Google"
+    let submit = page.getByRole("button", { name: /^\s*se connecter\s*$/i }).first();
+    if (!(await submit.count()))
+      submit = page.getByRole("button", { name: /connexion|valider|^login$|^sign in$/i }).first();
     const hasSubmit = (await submit.count()) > 0;
     await (hasSubmit ? submit.click() : pass.press("Enter")).catch(() => {});
     await page.waitForLoadState("networkidle", { timeout: 12000 }).catch(() => {});
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(1500);
     loggedIn = !/\/auth\//i.test(page.url());
   }
   await addStep(
@@ -377,67 +394,219 @@ async function runAuthenticatedQuiz(
     return quiz;
   }
 
-  // Find a feature/QCM entry
-  t0 = Date.now();
-  let entered = false;
-  for (const kw of persona.featureKeywords) {
-    const link = page.getByRole("link", { name: new RegExp(kw, "i") }).first();
-    if (await link.count()) {
-      await link.click().catch(() => {});
-      await page.waitForLoadState("domcontentloaded", { timeout: 12000 }).catch(() => {});
-      await page.waitForTimeout(1200);
-      entered = true;
-      break;
+  // Dismiss onboarding/tutorial overlays that block navigation
+  for (const re of [/sortir du tutoriel|je connais d[ée]j[àa]/i, /plus tard/i, /^✕$|^×$/]) {
+    const e = page.getByRole("button", { name: re }).first();
+    if (await e.count()) {
+      await e.click().catch(() => {});
+      await page.waitForTimeout(400);
     }
   }
-  quiz.reached = entered;
+  await page.keyboard.press("Escape").catch(() => {});
+
+  // Navigate toward an answerable quiz.
+  t0 = Date.now();
+  const QUIZ_NAV = /sprint|qcm|quiz|entra[iî]n|medgames|jouer|d[ée]fi/i;
+  const START_BTN = /lancer|commencer|d[ée]marrer|jouer|c'est parti|sprint|^go$/i;
+  const origin = (() => { try { return new URL(page.url()).origin; } catch { return page.url(); } })();
+
+  const killOverlays = async () => {
+    for (const re of [/sortir du tutoriel|je connais d[ée]j[àa]/i, /plus tard/i, /^✕$|^×$/, /^tout accepter$|^accepter$/i]) {
+      const e = page.getByRole("button", { name: re }).first();
+      if (await e.count()) { await e.click().catch(() => {}); await page.waitForTimeout(300); }
+    }
+    await page.keyboard.press("Escape").catch(() => {});
+  };
+  const tryStart = async () => {
+    for (const re of [/officielle/i, /^10\b|10 qcm/i, /^30s$/i]) {
+      const e = page.getByRole("button", { name: re }).first();
+      if (await e.count()) await e.click().catch(() => {});
+    }
+    for (const getter of [
+      () => page.getByRole("button", { name: START_BTN }).first(),
+      () => page.getByRole("link", { name: START_BTN }).first(),
+      () => page.getByText(START_BTN).first(),
+    ]) {
+      const el = getter();
+      if (await el.count()) { await el.click().catch(() => {}); await page.waitForTimeout(2800); return; }
+    }
+  };
+
+  // (a) direct probes of common quiz routes (most reliable)
+  for (const route of ["/app/sprint", "/sprint", "/app/qcm", "/quiz", "/app/medgames"]) {
+    if (await hasQuestionUI(page)) break;
+    await page.goto(origin + route, { waitUntil: "domcontentloaded", timeout: 18000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    await killOverlays();
+    await tryStart();
+  }
+  // (b) fallback: click through the nav (MedGames → Sprint → start)
+  for (let hop = 0; hop < 2 && !(await hasQuestionUI(page)); hop++) {
+    await killOverlays();
+    const navLink = page.getByRole("link", { name: QUIZ_NAV }).first();
+    const navText = page.getByText(QUIZ_NAV).first();
+    if (await navLink.count()) await navLink.click().catch(() => {});
+    else if (await navText.count()) await navText.click().catch(() => {});
+    await page.waitForTimeout(1500);
+    await tryStart();
+  }
+  quiz.reached = await hasQuestionUI(page);
   await addStep(
     "Accès à l'entraînement",
-    "Cherche et ouvre une session de QCM / entraînement",
-    entered ? "success" : "partial",
-    entered,
+    "Cherche et lance une session de QCM (l'agent navigue comme un étudiant)",
+    quiz.reached ? "success" : "partial",
+    quiz.reached,
     Date.now() - t0,
-    [entered ? `Section ouverte → ${page.url()}` : "Aucune entrée QCM évidente trouvée depuis l'accueil connecté."],
+    [quiz.reached ? `Session de QCM ouverte → ${page.url()}` : "Aucune session de QCM jouable atteinte."],
     "feature"
   );
 
-  // Attempt a few questions
+  // Answer questions — the AI reads each question and decides the answer.
+  let missingQuestionCount = 0;
   for (let q = 0; q < 5; q++) {
-    const options = page.locator(
-      'input[type="radio"], input[type="checkbox"], [role="radio"], button[class*="option" i], li[class*="answer" i]'
-    );
-    const n = await options.count().catch(() => 0);
-    if (!n) break;
+    const ui = await readQuestion(page);
+    if (!ui.kind) break;
     quiz.questionsSeen++;
-    await options.first().click().catch(() => {});
-    const validate = page
-      .getByRole("button", { name: /valider|v[ée]rifier|suivant|confirmer|r[ée]pondre/i })
-      .first();
-    if (await validate.count()) await validate.click().catch(() => {});
-    await page.waitForTimeout(900);
+    const pointsBefore = await readPoints(page);
+
+    let chosen = "";
+    let reason = "";
+    if (!ui.question) {
+      // The platform showed answer buttons but NO question text → real bug.
+      missingQuestionCount++;
+      reason = "Aucun énoncé affiché — réponse impossible à raisonner.";
+      chosen = ui.options[0] || "";
+    } else if (aiEnabled() && ui.kind === "vraifaux") {
+      const ans = (
+        await aiComplete(
+          `Tu passes un QCM médical. Affirmation : « ${ui.question} ». ` +
+            `Réponds STRICTEMENT par un seul mot : "vrai" ou "faux".`,
+          { maxTokens: 5 }
+        )
+      )?.toLowerCase();
+      chosen = ans && /faux/.test(ans) ? "faux" : "vrai";
+      reason = `IA → ${chosen}`;
+    } else if (aiEnabled() && ui.options.length) {
+      const ans = await aiComplete(
+        `QCM médical. Question : « ${ui.question} ». Options : ${ui.options
+          .map((o, i) => `${i + 1}. ${o}`)
+          .join(" | ")}. Réponds STRICTEMENT par le numéro de la bonne option.`,
+        { maxTokens: 5 }
+      );
+      const idx = Math.max(0, (parseInt(ans || "1", 10) || 1) - 1);
+      chosen = ui.options[Math.min(idx, ui.options.length - 1)] || ui.options[0];
+      reason = `IA → option ${idx + 1}`;
+    } else {
+      chosen = ui.options[0] || "vrai";
+      reason = "Heuristique (IA non configurée)";
+    }
+
+    await clickAnswer(page, ui.kind, chosen);
+    await page.waitForTimeout(1500);
     quiz.questionsAnswered++;
-    const verdict = (await page.evaluate(QUIZ_VERDICT_FN)) as string;
+
+    const pointsAfter = await readPoints(page);
+    let verdict = "unknown";
+    if (pointsBefore != null && pointsAfter != null)
+      verdict = pointsAfter > pointsBefore ? "correct" : "incorrect";
+    else verdict = (await page.evaluate(QUIZ_VERDICT_FN)) as string;
     if (verdict === "correct") quiz.correct++;
     else if (verdict === "incorrect") quiz.incorrect++;
-    const next = page.getByRole("button", { name: /suivant|continuer|next/i }).first();
+
+    quiz.notes.push(
+      `Q${q + 1}: ${ui.question ? `« ${ui.question.slice(0, 70)} » → ${chosen} (${verdict})` : `pas d'énoncé → ${verdict}`}`
+    );
+
+    const next = page.getByRole("button", { name: /question suivante|suivant|continuer|next/i }).first();
     if (await next.count()) await next.click().catch(() => {});
     await page.waitForTimeout(700);
   }
 
+  const aiOn = aiEnabled();
+  const obs: string[] = [];
+  if (quiz.questionsAnswered === 0) {
+    obs.push("Aucune question jouable n'a pu être atteinte/répondue.");
+  } else {
+    obs.push(
+      `${quiz.questionsAnswered} question(s) répondue(s) — ${quiz.correct} correcte(s), ${quiz.incorrect} incorrecte(s).` +
+        (aiOn ? " Réponses choisies par l'IA (gpt-4o-mini)." : " (IA non configurée → réponses heuristiques.)")
+    );
+  }
+  if (missingQuestionCount > 0) {
+    obs.push(
+      `🔴 ${missingQuestionCount} question(s) affichées SANS énoncé (seulement les boutons de réponse) — bug bloquant : impossible de répondre en connaissance de cause.`
+    );
+  }
+  obs.push("L'agent évalue la clarté des questions et la présence d'une correction après réponse.");
   await addStep(
     "QCM réalisé",
-    "Répond aux questions comme un étudiant et lit le feedback",
-    quiz.questionsAnswered > 0 ? "success" : "partial",
+    aiOn ? "L'IA lit chaque question et choisit la réponse, comme un étudiant" : "Répond aux questions et lit le feedback",
+    quiz.questionsAnswered > 0 ? (missingQuestionCount ? "gated" : "success") : "partial",
     quiz.questionsAnswered > 0,
     0,
-    [
-      `${quiz.questionsAnswered} question(s) répondue(s) — ${quiz.correct} correcte(s), ${quiz.incorrect} incorrecte(s).`,
-      "Évalue la clarté des questions et la qualité du feedback de correction.",
-    ],
+    obs,
     "quiz"
   );
 
   return quiz;
+}
+
+/** Detect whether an answerable question UI is on screen. */
+async function hasQuestionUI(page: PWPage): Promise<boolean> {
+  const vrai = page.getByRole("button", { name: /vrai/i }).first();
+  const faux = page.getByRole("button", { name: /faux/i }).first();
+  if ((await vrai.count()) && (await faux.count())) return true;
+  const opts = page.locator('input[type="radio"], [role="radio"], button[class*="option" i]');
+  return (await opts.count().catch(() => 0)) > 0;
+}
+
+const READ_QUESTION_FN = `(() => {
+  const bad = /dashboard|communaut|sapiens|menu|classement|parrainage|^vrai$|^faux$|\\d+\\s*\\/\\s*\\d+|pt$|\\bxp\\b|carabin|niveau suivant|\\bjour\\b|score|seconde|d[ée]connexion|param[èe]tre|^profil$|medflix|pr[ée]pas|radiologie|anatomie|flashcard|biblioth[èe]que|kh[ôo]lles/i;
+  // prefer real content blocks in <main>, not the gamified sidebar
+  const nodes = Array.from(document.querySelectorAll('main p, main h1, main h2, main h3, [class*="question" i], [class*="enonce" i]'));
+  const cand = nodes
+    .map(e => (e.textContent || '').replace(/\\s+/g,' ').trim())
+    .filter(t => t.length > 25 && t.length < 400 && !bad.test(t));
+  cand.sort((a,b) => b.length - a.length);
+  return { question: cand[0] || '' };
+})()`;
+
+interface QuestionUI { kind: "vraifaux" | "options" | null; question: string; options: string[]; }
+
+async function readQuestion(page: PWPage): Promise<QuestionUI> {
+  const vrai = page.getByRole("button", { name: /vrai/i }).first();
+  const faux = page.getByRole("button", { name: /faux/i }).first();
+  const isVF = (await vrai.count()) > 0 && (await faux.count()) > 0;
+  const q = (await page.evaluate(READ_QUESTION_FN).catch(() => ({ question: "" }))) as { question: string };
+  if (isVF) return { kind: "vraifaux", question: q.question, options: ["vrai", "faux"] };
+  const optLoc = page.locator('button[class*="option" i], [role="radio"]');
+  const n = await optLoc.count().catch(() => 0);
+  if (n > 0) {
+    const options = (await optLoc.allTextContents().catch(() => [])).map((t) => t.trim()).filter(Boolean).slice(0, 6);
+    return { kind: "options", question: q.question, options };
+  }
+  return { kind: null, question: "", options: [] };
+}
+
+async function clickAnswer(page: PWPage, kind: "vraifaux" | "options", chosen: string) {
+  if (kind === "vraifaux") {
+    const re = /faux/.test(chosen) ? /faux/i : /vrai/i;
+    await page.getByRole("button", { name: re }).first().click().catch(() => {});
+  } else {
+    const byText = page.getByRole("button", { name: new RegExp(chosen.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") }).first();
+    if (await byText.count()) await byText.click().catch(() => {});
+    else await page.locator('button[class*="option" i], [role="radio"]').first().click().catch(() => {});
+  }
+}
+
+async function readPoints(page: PWPage): Promise<number | null> {
+  try {
+    return (await page.evaluate(
+      `(()=>{const t=(document.querySelector('main')||document.body).innerText;const m=t.match(/(\\d+)\\s*pt/);return m?+m[1]:null;})()`
+    )) as number | null;
+  } catch {
+    return null;
+  }
 }
 
 function buildNarrative(

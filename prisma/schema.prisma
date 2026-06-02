@@ -40,6 +40,8 @@ model Audit {
 
   // persona/authenticated journey result (JSON JourneyResult)
   journeyData    String?
+  // AES-GCM encrypted test credentials (authenticated audits); cleared after run
+  credEnc        String?
 
   // JSON blobs (stringified) — SQLite has no native JSON
   scores         String?  // AuditScores

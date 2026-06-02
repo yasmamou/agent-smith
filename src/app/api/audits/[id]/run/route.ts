@@ -31,8 +31,15 @@ export async function POST(
     // ---- Persona / authenticated journey ----
     if (audit.type === "persona" || audit.type === "authenticated") {
       const persona = getPersona(audit.persona || "") ?? PERSONAS[0];
-      const journey = await runPersonaJourney(audit.targetUrl, persona, {});
+      let creds: { email: string; password: string } | undefined;
+      if (audit.type === "authenticated" && audit.credEnc) {
+        const { decryptJson } = await import("@/lib/security/crypto");
+        creds = decryptJson<{ email: string; password: string }>(audit.credEnc) ?? undefined;
+      }
+      const journey = await runPersonaJourney(audit.targetUrl, persona, { creds });
       await persistJourney(id, journey);
+      // wipe stored credentials right after the run
+      await prisma.audit.update({ where: { id }, data: { credEnc: null } }).catch(() => {});
       return NextResponse.json({
         ok: true,
         status: "completed",
