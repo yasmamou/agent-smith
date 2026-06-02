@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Plus, Store, LogOut } from "lucide-react";
+import { LayoutDashboard, Plus, Store, LogOut, KeyRound } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/dashboard", label: "Audits", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/audits/new", label: "New audit", icon: Plus, exact: false },
   { href: "/marketplace", label: "Marketplace", icon: Store, exact: false },
+  { href: "/dashboard/api", label: "API", icon: KeyRound, exact: false },
 ];
 
 export function Topbar({ email }: { email: string }) {

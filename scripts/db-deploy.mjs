@@ -14,7 +14,7 @@ if (!isPostgres) {
 
 try {
   console.log("[db-deploy] pushing Prisma schema to Postgres…");
-  execSync("prisma db push --skip-generate", { stdio: "inherit" });
+  execSync("prisma db push --skip-generate --accept-data-loss", { stdio: "inherit" });
 } catch (err) {
   console.error("[db-deploy] schema push failed:", err?.message || err);
   // Don't hard-fail the build; the app surfaces DB errors clearly at runtime.

@@ -17,10 +17,31 @@ model User {
   name         String?
   passwordHash String
   plan         String   @default("free") // free | starter | pro | team
+  apiKey       String?  @unique // for programmatic access (Claude Code / CI / MCP)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  audits Audit[]
+  audits       Audit[]
+  customAgents CustomAgent[]
+}
+
+model CustomAgent {
+  id           String   @id @default(cuid())
+  userId       String
+  slug         String   @unique
+  name         String
+  specialty    String   // e.g. cybersecurity | ux | functional | ...
+  description  String?
+  checks       String   // JSON string[] of check ids from the catalog
+  aiInstructions String?
+  avatar       String   @default("🤖")
+  accent       String   @default("#18e26a")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Audit {
