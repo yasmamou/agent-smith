@@ -16,7 +16,9 @@ import { formatDate } from "@/lib/utils";
 
 async function crawl(config: AuditConfig): Promise<CrawlResult> {
   const forced = process.env.AUDIT_ENGINE?.toLowerCase();
-  if (forced === "mock") return mockCrawl(config);
+  const hasRemoteBrowser = !!process.env.BROWSERBASE_API_KEY;
+  // A configured remote browser (Browserbase) overrides a lingering mock flag.
+  if (forced === "mock" && !hasRemoteBrowser) return mockCrawl(config);
 
   // Try the REAL browser engine everywhere (local: full playwright; serverless:
   // playwright-core + @sparticuz/chromium). Fall back to the mock crawl on any

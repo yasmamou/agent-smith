@@ -73,28 +73,53 @@ const PAGE_ANALYSIS_FN = `() => {
   };
 }`;
 
+interface Session {
+  browser: { close: () => Promise<void> };
+  context: import("playwright-core").BrowserContext;
+}
+
 /**
- * Launch Chromium for either environment:
- *  - Serverless (Vercel): playwright-core + @sparticuz/chromium (slim binary).
- *  - Local/dev: the full `playwright` package with its bundled browser.
- * Returns a Playwright Browser regardless of which path is taken.
+ * Open a browser session for the current environment:
+ *  - BROWSERBASE_API_KEY set → connect to a hosted Chrome over CDP (works on
+ *    serverless: no system libs needed). This is how prod runs real audits.
+ *  - Local/dev → the full `playwright` package with its bundled browser.
+ *  - Serverless without Browserbase → playwright-core + @sparticuz/chromium
+ *    (note: bare Vercel lacks libnss3, so this path usually fails → mock).
  */
-async function launchBrowser() {
+async function launchSession(): Promise<Session> {
+  const bbKey = process.env.BROWSERBASE_API_KEY;
+  if (bbKey) {
+    const projectId = process.env.BROWSERBASE_PROJECT_ID || "";
+    const { chromium } = await import("playwright-core");
+    const wsUrl = `wss://connect.browserbase.com?apiKey=${bbKey}${projectId ? `&projectId=${projectId}` : ""}`;
+    const browser = await chromium.connectOverCDP(wsUrl);
+    // Browserbase provisions a ready context — reuse it.
+    const context = browser.contexts()[0] ?? (await browser.newContext());
+    return { browser, context };
+  }
+
   const isServerless = process.env.VERCEL === "1" || process.env.AWS_LAMBDA_FUNCTION_NAME != null;
   if (isServerless) {
     const sparticuz = (await import("@sparticuz/chromium")).default;
-    // Disable GPU/webgl graphics — reduces launch crashes on Lambda/Vercel.
     sparticuz.setGraphicsMode = false;
     const { chromium } = await import("playwright-core");
-    return chromium.launch({
+    const browser = await chromium.launch({
       args: [...sparticuz.args, "--disable-gpu", "--no-zygote"],
       executablePath: await sparticuz.executablePath(),
       headless: true,
     });
+    const context = await browser.newContext({ ignoreHTTPSErrors: true });
+    return { browser, context };
   }
+
   // local / dev — full playwright with its installed browser
   const { chromium } = await import("playwright");
-  return chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({
+    userAgent: "Mozilla/5.0 (AgentSmith QA Bot; +https://agentsmith.dev) Chrome/120 Safari/537.36",
+    ignoreHTTPSErrors: true,
+  });
+  return { browser, context };
 }
 
 export async function playwrightCrawl(config: AuditConfig): Promise<CrawlResult> {
@@ -102,18 +127,14 @@ export async function playwrightCrawl(config: AuditConfig): Promise<CrawlResult>
   const https = target.startsWith("https://");
   const start = Date.now();
 
-  const browser = await launchBrowser();
-  const context = await browser.newContext({
-    userAgent:
-      "Mozilla/5.0 (AgentSmith QA Bot; +https://agentsmith.dev) Chrome/120 Safari/537.36",
-    ignoreHTTPSErrors: true,
-  });
+  const { browser, context } = await launchSession();
 
   const headers: Record<string, string> = {};
   const techLeaks: string[] = [];
   const pages: CrawlPage[] = [];
   const visited = new Set<string>();
   let reachable = true;
+  let cookiesRaw: Awaited<ReturnType<import("playwright-core").BrowserContext["cookies"]>> = [];
 
   const pageBudget = config.mode === "quick" ? 3 : config.mode === "deep" ? 8 : 5;
   const origin = (() => {
@@ -208,12 +229,12 @@ export async function playwrightCrawl(config: AuditConfig): Promise<CrawlResult>
 
       await page.close();
     }
+    cookiesRaw = await context.cookies().catch(() => []);
   } finally {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
   }
 
-  const cookiesRaw = await context.cookies().catch(() => []);
   const cookies: CrawlCookie[] = cookiesRaw.map((c) => ({
     name: c.name,
     secure: !!c.secure,
