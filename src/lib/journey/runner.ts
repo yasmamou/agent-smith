@@ -376,8 +376,10 @@ async function runAuthenticatedQuiz(
       submit = page.getByRole("button", { name: /connexion|valider|^login$|^sign in$/i }).first();
     const hasSubmit = (await submit.count()) > 0;
     await (hasSubmit ? submit.click() : pass.press("Enter")).catch(() => {});
-    await page.waitForLoadState("networkidle", { timeout: 12000 }).catch(() => {});
-    await page.waitForTimeout(1500);
+    // wait for the redirect away from /auth (robust to remote-browser latency)
+    await page.waitForURL((u) => !/\/auth\//i.test(u.toString()), { timeout: 18000 }).catch(() => {});
+    await page.waitForLoadState("networkidle", { timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(800);
     loggedIn = !/\/auth\//i.test(page.url());
   }
   await addStep(
