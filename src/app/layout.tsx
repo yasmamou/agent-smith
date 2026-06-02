@@ -15,7 +15,9 @@ export const metadata: Metadata = {
     description:
       "Paste a URL. Agents explore, test and report. Get an actionable fix prompt for Claude Code / Cursor.",
     type: "website",
+    images: [{ url: "/agent-smith-full.png", width: 1254, height: 1254, alt: "Agent Smith" }],
   },
+  icons: { icon: "/icon.png" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

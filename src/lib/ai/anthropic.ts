@@ -1,5 +1,6 @@
 import type { Finding, AuditScores, AuditConfig } from "@/types";
 import { safeHost } from "@/lib/utils";
+import { aiEnabled, aiComplete } from "./provider";
 
 /**
  * Optional AI narrative. When ANTHROPIC_API_KEY is set, Claude writes the
@@ -41,39 +42,20 @@ export async function generateSummary(
   scores: AuditScores,
   config: AuditConfig
 ): Promise<string> {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return deterministicSummary(findings, scores, config);
+  if (!aiEnabled()) return deterministicSummary(findings, scores, config);
 
-  try {
-    const Anthropic = (await import("@anthropic-ai/sdk")).default;
-    const client = new Anthropic({ apiKey: key });
-    const compact = findings
-      .slice(0, 16)
-      .map((f) => `- [${f.severity}/${f.category}] ${f.title}`)
-      .join("\n");
+  const compact = findings
+    .slice(0, 16)
+    .map((f) => `- [${f.severity}/${f.category}] ${f.title}`)
+    .join("\n");
 
-    const msg = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 400,
-      messages: [
-        {
-          role: "user",
-          content:
-            `Write a crisp 3-4 sentence executive summary for a web QA audit of ${safeHost(
-              config.targetUrl
-            )}. Overall score ${scores.overall}/100 (functional ${scores.functional}, ui ${scores.ui}, ux ${scores.ux}, security ${scores.security}, performance ${scores.performance}). ` +
-            `Findings:\n${compact}\n\n` +
-            `Be direct and developer-focused. No preamble, no markdown headers, just the summary text.`,
-        },
-      ],
-    });
-    const text = msg.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b as { text: string }).text)
-      .join("\n")
-      .trim();
-    return text || deterministicSummary(findings, scores, config);
-  } catch {
-    return deterministicSummary(findings, scores, config);
-  }
+  const text = await aiComplete(
+    `Rédige un résumé exécutif percutant de 3-4 phrases pour un audit QA web de ${safeHost(
+      config.targetUrl
+    )}. Score global ${scores.overall}/100 (fonctionnel ${scores.functional}, ui ${scores.ui}, ux ${scores.ux}, sécurité ${scores.security}, performance ${scores.performance}).\n` +
+      `Problèmes détectés :\n${compact}\n\n` +
+      `Sois direct, orienté développeur, en français. Pas de préambule ni de titre, juste le texte du résumé.`,
+    { maxTokens: 400 }
+  );
+  return text || deterministicSummary(findings, scores, config);
 }
