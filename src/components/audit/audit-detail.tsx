@@ -116,7 +116,7 @@ export function AuditDetail({ initial }: { initial: AuditDetailData }) {
     );
   }
 
-  if (audit.type === "persona" && audit.journeyData) {
+  if ((audit.type === "persona" || audit.type === "authenticated") && audit.journeyData) {
     return <JourneyView audit={audit} journey={audit.journeyData} onRerun={run} onDelete={remove} />;
   }
 
