@@ -9,10 +9,28 @@ import type { AuditReport, AuditConfig, AuditStatus, Finding, AuditScores } from
 export async function createAudit(
   userId: string,
   config: AuditConfig,
-  extra?: { type?: string; persona?: string }
+  extra?: { type?: string; persona?: string; customAgentSlug?: string }
 ) {
   const type = extra?.type || "technical";
   const hasCreds = !!(config.login && config.password);
+
+  // Custom marketplace agent → snapshot its config onto the audit.
+  let agentConfig: string | null = null;
+  if (type === "custom" && extra?.customAgentSlug) {
+    const agent = await prisma.customAgent.findFirst({
+      where: { slug: extra.customAgentSlug, userId },
+    });
+    if (agent) {
+      agentConfig = JSON.stringify({
+        name: agent.name,
+        specialty: agent.specialty,
+        checks: JSON.parse(agent.checks || "[]"),
+        aiInstructions: agent.aiInstructions || undefined,
+        accent: agent.accent,
+        avatar: agent.avatar,
+      });
+    }
+  }
   // For authenticated audits, store credentials ENCRYPTED (AES-GCM) — used only
   // at run time, never in clear, cleared after the run.
   let credEnc: string | null = null;
@@ -33,6 +51,7 @@ export async function createAudit(
       whitelistNotes: config.whitelistNotes || null,
       hasCredentials: !!(config.login || config.password || config.apiKey),
       credEnc,
+      agentConfig,
       status: "pending",
     },
   });

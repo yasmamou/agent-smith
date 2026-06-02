@@ -40,7 +40,8 @@ function deterministicSummary(
 export async function generateSummary(
   findings: Finding[],
   scores: AuditScores,
-  config: AuditConfig
+  config: AuditConfig,
+  focus?: string
 ): Promise<string> {
   if (!aiEnabled()) return deterministicSummary(findings, scores, config);
 
@@ -54,6 +55,7 @@ export async function generateSummary(
       config.targetUrl
     )}. Score global ${scores.overall}/100 (fonctionnel ${scores.functional}, ui ${scores.ui}, ux ${scores.ux}, sécurité ${scores.security}, performance ${scores.performance}).\n` +
       `Problèmes détectés :\n${compact}\n\n` +
+      (focus ? `Angle de l'agent (à respecter) : ${focus}\n\n` : "") +
       `Sois direct, orienté développeur, en français. Pas de préambule ni de titre, juste le texte du résumé.`,
     { maxTokens: 400 }
   );

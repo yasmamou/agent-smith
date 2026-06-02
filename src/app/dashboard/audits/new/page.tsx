@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Zap, Gauge, Radar, ShieldAlert, ChevronRight, Lock, ScanSearch, Footprints, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,22 @@ export default function NewAuditPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agentSlug, setAgentSlug] = useState<string | null>(null);
+  const [agentName, setAgentName] = useState<string>("");
+
+  // ?agent=<slug> → run with a custom marketplace agent
+  useEffect(() => {
+    const slug = new URLSearchParams(window.location.search).get("agent");
+    if (!slug) return;
+    setAgentSlug(slug);
+    fetch("/api/agents")
+      .then((r) => r.json())
+      .then((d) => {
+        const a = (d.agents || []).find((x: { slug: string }) => x.slug === slug);
+        if (a) setAgentName(a.name);
+      })
+      .catch(() => {});
+  }, []);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -51,8 +67,9 @@ export default function NewAuditPage() {
     setLoading(true);
     const payload = {
       targetUrl: String(form.get("targetUrl") || "").trim(),
-      type: auditType,
-      persona: auditType !== "technical" ? persona : undefined,
+      type: agentSlug ? "custom" : auditType,
+      customAgentSlug: agentSlug || undefined,
+      persona: !agentSlug && auditType !== "technical" ? persona : undefined,
       mode,
       agentsCount,
       durationMinutes,
@@ -99,8 +116,24 @@ export default function NewAuditPage() {
           />
         </div>
 
+        {/* Custom agent banner */}
+        {agentSlug && (
+          <div className="flex items-center justify-between rounded-xl border border-matrix-dim/50 bg-matrix/5 px-4 py-3">
+            <span className="text-sm text-fg">
+              🤖 Audit avec ton agent <strong className="text-matrix">{agentName || "personnalisé"}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => { setAgentSlug(null); setAgentName(""); }}
+              className="text-xs text-fg-faint hover:text-fg"
+            >
+              retirer
+            </button>
+          </div>
+        )}
+
         {/* Audit type */}
-        <div>
+        <div className={cn(agentSlug && "hidden")}>
           <Label>Type d&apos;audit</Label>
           <div className="grid gap-3 sm:grid-cols-3">
             {TYPES.map((t) => (

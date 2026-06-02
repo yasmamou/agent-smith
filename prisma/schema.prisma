@@ -63,6 +63,8 @@ model Audit {
   journeyData    String?
   // AES-GCM encrypted test credentials (authenticated audits); cleared after run
   credEnc        String?
+  // snapshot of the custom marketplace agent used (JSON: name, checks[], aiInstructions, …)
+  agentConfig    String?
 
   // JSON blobs (stringified) — SQLite has no native JSON
   scores         String?  // AuditScores

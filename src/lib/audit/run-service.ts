@@ -54,9 +54,27 @@ export async function executeAudit(auditId: string): Promise<RunResult> {
       instructions: audit.instructions ?? undefined,
       whitelistNotes: audit.whitelistNotes ?? undefined,
     };
-    const report = await runAudit(config);
+
+    // Custom marketplace agent: focus categories + active checks + AI angle.
+    let opts = {};
+    if (audit.type === "custom" && audit.agentConfig) {
+      try {
+        const cfg = JSON.parse(audit.agentConfig) as { checks?: string[]; aiInstructions?: string };
+        const checks = cfg.checks ?? [];
+        const { categoriesForChecks, activeChecks } = await import("@/lib/agents/catalog");
+        opts = {
+          activeCheckIds: activeChecks(checks).map((c) => c.id),
+          categoryFilter: categoriesForChecks(checks),
+          aiInstructions: cfg.aiInstructions || undefined,
+        };
+      } catch {
+        /* fall back to a full technical audit */
+      }
+    }
+
+    const report = await runAudit(config, opts);
     await persistReport(auditId, report);
-    return { ok: true, status: "completed", type: "technical", scores: report.scores, engine: report.engine };
+    return { ok: true, status: "completed", type: audit.type, scores: report.scores, engine: report.engine };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Audit failed";
     await setAuditStatus(auditId, "failed", message);

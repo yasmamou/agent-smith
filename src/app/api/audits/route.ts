@@ -41,6 +41,7 @@ export async function POST(req: Request) {
   const audit = await createAudit(session.userId, config, {
     type: data.type,
     persona: data.persona,
+    customAgentSlug: data.customAgentSlug,
   });
   return NextResponse.json({ ok: true, id: audit.id });
 }

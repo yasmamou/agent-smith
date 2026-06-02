@@ -72,16 +72,25 @@ function buildScreenshots(crawl: CrawlResult, findings: Finding[]): ScreenshotRe
   return shots;
 }
 
+export interface RunAuditOptions {
+  /** active security probe ids to run (sql-injection, xss-reflected) */
+  activeCheckIds?: string[];
+  /** restrict findings to these categories (custom-agent focus) */
+  categoryFilter?: Set<import("@/types").Category>;
+  /** extra focus instructions for the AI summary (custom agent) */
+  aiInstructions?: string;
+}
+
 /**
  * runAudit — the core entry point. Orchestrates crawl → agents → scoring →
  * report. Always returns a complete AuditReport (never throws for normal
  * audit conditions; unreachable targets are reported as findings).
  */
-export async function runAudit(config: AuditConfig): Promise<AuditReport> {
+export async function runAudit(config: AuditConfig, opts: RunAuditOptions = {}): Promise<AuditReport> {
   const crawlResult = await crawl(config);
 
   // Run every analysis agent over the crawl.
-  const findings: Finding[] = [];
+  let findings: Finding[] = [];
   for (const agent of ANALYSIS_AGENTS) {
     try {
       findings.push(...agent.run(crawlResult));
@@ -90,13 +99,28 @@ export async function runAudit(config: AuditConfig): Promise<AuditReport> {
     }
   }
 
+  // Active security probes (custom agents only — authorization required).
+  if (opts.activeCheckIds?.length) {
+    try {
+      const { runActiveChecks } = await import("@/lib/agents/active-checks");
+      findings.push(...(await runActiveChecks(crawlResult, opts.activeCheckIds)));
+    } catch {
+      /* active checks must never sink the audit */
+    }
+  }
+
+  // Custom-agent focus: keep only findings in the agent's categories.
+  if (opts.categoryFilter && opts.categoryFilter.size) {
+    findings = findings.filter((f) => opts.categoryFilter!.has(f.category));
+  }
+
   const scores = computeScores(findings);
   const pages = toPageVisits(crawlResult);
   const uxSuggestions = buildUxSuggestions(findings);
   const fixPrompt = buildFixPrompt(findings, config);
   const timeline = buildTimeline(crawlResult, findings);
   const screenshots = buildScreenshots(crawlResult, findings);
-  const summary = await generateSummary(findings, scores, config);
+  const summary = await generateSummary(findings, scores, config, opts.aiInstructions);
   const date = formatDate(new Date());
 
   const reportMarkdown = buildMarkdown({
