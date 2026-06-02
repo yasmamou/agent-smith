@@ -168,6 +168,9 @@ function JourneyView({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <a href={`/api/audits/${audit.id}/export-pdf`} target="_blank" rel="noopener noreferrer">
+            <Button variant="secondary"><Download /> PDF</Button>
+          </a>
           <Button variant="ghost" onClick={onRerun} title="Re-run"><RotateCw /></Button>
           <Button variant="ghost" onClick={onDelete} title="Delete"><Trash2 /></Button>
         </div>
@@ -355,10 +358,13 @@ function ReportView({
           {audit.fixPrompt && (
             <CopyButton text={audit.fixPrompt} label="Copy fix prompt" copiedLabel="Copied!" variant="primary" size="md" />
           )}
-          <a href={`/api/audits/${audit.id}/export`}>
+          <a href={`/api/audits/${audit.id}/export-pdf`} target="_blank" rel="noopener noreferrer">
             <Button variant="secondary">
-              <Download /> Export
+              <Download /> PDF
             </Button>
+          </a>
+          <a href={`/api/audits/${audit.id}/export`}>
+            <Button variant="ghost" title="Export Markdown">.md</Button>
           </a>
           <Button variant="ghost" onClick={onRerun} title="Re-run">
             <RotateCw />
