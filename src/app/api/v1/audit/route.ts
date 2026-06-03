@@ -40,7 +40,11 @@ export async function POST(req: Request) {
     apiKey: data.apiKey,
   };
 
-  const audit = await createAudit(user.userId, config, { type: data.type, persona: data.persona });
+  const audit = await createAudit(user.userId, config, {
+    type: data.type,
+    persona: data.persona,
+    customAgentSlug: data.customAgentSlug,
+  });
   const result = await executeAudit(audit.id);
 
   const full = await getAuditWithRelations(audit.id, user.userId);
