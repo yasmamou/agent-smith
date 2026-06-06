@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Zap, Gauge, Radar, ShieldAlert, ChevronRight, Lock, ScanSearch, Footprints, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,8 @@ export default function NewAuditPage() {
   const [agentsCount, setAgentsCount] = useState(5);
   const [durationMinutes, setDurationMinutes] = useState(15);
   const [authorized, setAuthorized] = useState(false);
+  const [authInvalid, setAuthInvalid] = useState(false);
+  const authRef = useRef<HTMLLabelElement>(null);
   const [allowWrites, setAllowWrites] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -66,7 +68,9 @@ export default function NewAuditPage() {
     e.preventDefault();
     setError(null);
     if (!authorized) {
-      setError("Confirme que tu es autorisé à tester ce site.");
+      setAuthInvalid(true);
+      setError("Coche la case « I'm authorized to test this site » en bas du formulaire pour lancer l'audit.");
+      authRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     const form = new FormData(e.currentTarget);
@@ -344,21 +348,38 @@ export default function NewAuditPage() {
           )}
         </div>
 
-        {/* Authorization */}
-        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-bg-elevated/40 p-4">
+        {/* Authorization (required gate) */}
+        <label
+          ref={authRef}
+          htmlFor="authorized"
+          className={cn(
+            "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors",
+            authInvalid
+              ? "border-critical bg-critical/10 ring-1 ring-critical/50"
+              : "border-border bg-bg-elevated/40"
+          )}
+        >
           <input
+            id="authorized"
+            name="authorized"
             type="checkbox"
+            required
+            aria-label="I'm authorized to test this site"
             checked={authorized}
-            onChange={(e) => setAuthorized(e.target.checked)}
+            onChange={(e) => { setAuthorized(e.target.checked); if (e.target.checked) setAuthInvalid(false); }}
             className="mt-0.5 size-4 accent-[var(--color-matrix)]"
           />
           <span className="text-sm text-fg-muted">
             <span className="inline-flex items-center gap-1.5 font-medium text-fg">
-              <ShieldAlert className="size-4 text-medium" /> I&apos;m authorized to test this site.
+              <ShieldAlert className={cn("size-4", authInvalid ? "text-critical" : "text-medium")} /> I&apos;m authorized to test this site.
+              <span className="text-critical">*</span>
             </span>
             <br />
             Agent Smith performs passive, non-destructive checks only — no brute force, injection or
             exploitation.
+            {authInvalid && (
+              <span className="mt-1 block font-medium text-critical">Requis — coche cette case pour lancer l&apos;audit.</span>
+            )}
           </span>
         </label>
 

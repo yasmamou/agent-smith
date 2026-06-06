@@ -83,13 +83,21 @@ async function a11yInventory(
       const m = line.match(re);
       if (!m) continue;
       const role = m[1];
-      const name = (m[2] || "").trim();
-      if (!name || name.length > 50) continue;
+      let name = (m[2] || "").trim();
+      if (!name) continue;
+      const isToggle = ["checkbox", "switch", "radio"].includes(role);
+      // Consent/authorization checkboxes often carry a long sentence as their
+      // accessible name — don't drop them, just shorten to a matchable prefix.
+      if (name.length > 50) {
+        if (!isToggle) continue;
+        name = (name.split(/[.\n]/)[0] || name).trim().slice(0, 40);
+        if (!name) continue;
+      }
       if (["button", "link", "tab", "menuitem"].includes(role)) {
         if (!seen.has(name)) { seen.add(name); clickables.push(name); }
       } else if (["textbox", "searchbox", "combobox", "listbox", "spinbutton", "slider"].includes(role)) {
         fields.push({ label: name, type: role === "combobox" || role === "listbox" ? "select-one" : role });
-      } else if (["checkbox", "switch", "radio"].includes(role)) {
+      } else if (isToggle) {
         if (!seen.has(name)) { seen.add(name); clickables.push("☐ " + name); }
       }
     }
@@ -250,7 +258,28 @@ export async function runWorkflowTest(
       const u = page.url();
       return /\/[a-z0-9_-]{8,}(\?|$)/i.test(u) && new URL(u).pathname !== startPath && !/\/new\b/.test(u) && !isAuthUrl(u);
     };
+    // In write mode, a form often won't submit until a required consent /
+    // authorization checkbox is ticked. Tick visible unchecked ones first — this
+    // is the gate that silently blocks "Launch / Create / Simuler".
+    const tickConsents = async () => {
+      if (!writeMode) return;
+      try {
+        const boxes = page.getByRole("checkbox");
+        const n = await boxes.count().catch(() => 0);
+        for (let k = 0; k < Math.min(n, 8); k++) {
+          const cb = boxes.nth(k);
+          if (!(await cb.isVisible().catch(() => false))) continue;
+          if (await cb.isChecked().catch(() => false)) continue;
+          const name = ((await cb.getAttribute("aria-label")) || (await cb.textContent().catch(() => "")) || "").toLowerCase();
+          // tick consent/authorization/terms-style boxes (skip opt-in marketing toggles)
+          if (/autoris|authorized|consent|j'accepte|accept|d'accord|agree|terms|conditions|required|i'm|je confirme/i.test(name) || name === "") {
+            await cb.check({ timeout: 3000 }).catch(() => {});
+          }
+        }
+      } catch { /* best-effort */ }
+    };
     const trySubmit = async () => {
+      await tickConsents();
       const submit = page
         .getByRole("button", { name: /launch|lancer|^run\b|d[ée]marrer|cr[ée]er|valider|envoyer|soumettre|confirmer|terminer|simuler|jouer|g[ée]n[ée]rer|calculer|^go$|submit/i })
         .first();
