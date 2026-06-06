@@ -31,18 +31,28 @@ export function Hero() {
             className="text-balance text-4xl font-bold leading-[1.08] tracking-tight text-fg sm:text-5xl lg:text-6xl"
           >
             Your AI QA agent after every{" "}
-            <span className="text-matrix text-glow">vibe-coded</span> deployment
+            <span className="text-matrix text-glow">deploy</span>
           </motion.h1>
 
           <motion.p
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.12 }}
-            className="mt-5 max-w-xl text-lg text-fg-muted"
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="mt-4 max-w-xl text-balance text-lg font-medium text-fg"
           >
-            Paste a URL. A swarm of agents explores your app, clicks every button,
-            tests forms, and hunts functional, UI, UX, security and performance bugs —
-            then hands you a fix prompt ready to paste into Claude Code or Cursor.
+            In plain terms: an agent tests your live app, finds what&apos;s broken, and
+            hands you the fix — ready to paste into your editor.
+          </motion.p>
+
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.16 }}
+            className="mt-3 max-w-xl text-sm text-fg-muted"
+          >
+            Paste a URL — agents explore the app, click every button, test forms and
+            real user flows, then write a fix prompt ready for Claude Code, Cursor or
+            any editor. Built for vibe-coded apps; works for any site.
           </motion.p>
 
           <motion.div
