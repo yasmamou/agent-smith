@@ -80,6 +80,8 @@ model Audit {
   hasCredentials Boolean  @default(false)
   allowWrites    Boolean  @default(false) // interactive workflow test (fill/submit forms)
   engine         String?  // playwright | mock
+  shareId        String?  @unique // public read-only share token (null = private)
+  source         String?  // ui | api | deploy-hook
 
   // persona/authenticated journey result (JSON JourneyResult)
   journeyData    String?

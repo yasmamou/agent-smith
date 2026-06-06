@@ -103,6 +103,8 @@ export async function POST(req: Request) {
   const result = await executeAudit(audit.id);
 
   const full = await getAuditWithRelations(audit.id, user.userId);
+  const { computeRegression } = await import("@/lib/audit/diff");
+  const regression = await computeRegression(audit.id).catch(() => null);
 
   return NextResponse.json(
     {
@@ -123,6 +125,7 @@ export async function POST(req: Request) {
       siteModel: full?.siteModel ? parseJson(full.siteModel, null) : null,
       workflow: full?.workflowData ? parseJson(full.workflowData, null) : null,
       strategy: full?.strategyData ? parseJson(full.strategyData, null) : null,
+      regression,
       error: result.error,
     },
     { status: result.ok ? 200 : 500 }

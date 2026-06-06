@@ -44,6 +44,13 @@ export default function ApiPage() {
   const cli = `AGENT_SMITH_API_KEY=${key} \\
   node scripts/agent-smith.mjs https://your-app.com technical`;
 
+  const deploy = `# Post-deploy hook — audit + regression digest on every deploy
+# (GitHub Action, Vercel deploy notification, or any CI step)
+curl -X POST ${origin()}/api/hooks/deploy \\
+  -H "Authorization: Bearer ${key}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"targetUrl":"https://your-app.com"}'`;
+
   return (
     <div className="mx-auto max-w-3xl">
       <h1 className="flex items-center gap-2 text-2xl font-bold text-fg">
@@ -83,6 +90,8 @@ export default function ApiPage() {
         note="Zéro dépendance. Idéal pour scripter ou tourner dans un pipeline." />
       <Snippet icon={Terminal} title="API REST (curl)" text={curl}
         note="POST /api/v1/audit — crée + exécute + renvoie le rapport complet en un appel. types: technical · persona · authenticated." />
+      <Snippet icon={Plug} title="Webhook post-déploiement (CI/CD)" text={deploy}
+        note="POST /api/hooks/deploy — audite automatiquement à chaque déploiement et renvoie un diff de régression (score + findings vs run précédent). Idéal en GitHub Action ou notification de déploiement Vercel." />
     </div>
   );
 }

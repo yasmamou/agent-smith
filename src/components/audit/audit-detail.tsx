@@ -16,6 +16,7 @@ import type { Finding, AuditScores, PageVisit, ScreenshotRef, AuditStatus } from
 import { Button } from "@/components/ui/button";
 import { ScoreRing, ScoreBar } from "@/components/score-ring";
 import { FindingCard } from "@/components/audit/finding-card";
+import { ShareButton } from "@/components/audit/share-button";
 import { CopyButton } from "@/components/copy-button";
 import { MatrixRain } from "@/components/matrix-rain";
 import { SeverityBadge } from "@/components/severity-badge";
@@ -47,6 +48,7 @@ export interface AuditDetailData {
   siteModel?: SiteModel | null;
   workflow?: WorkflowResult | null;
   strategy?: StrategyResult | null;
+  regression?: import("@/lib/audit/diff").RegressionDiff | null;
 }
 
 const AGENT_STEPS = [
@@ -370,6 +372,7 @@ function ReportView({
           <a href={`/api/audits/${audit.id}/export`}>
             <Button variant="ghost" title="Export Markdown">.md</Button>
           </a>
+          <ShareButton auditId={audit.id} />
           <Button variant="ghost" onClick={onRerun} title="Re-run">
             <RotateCw />
           </Button>
@@ -451,6 +454,46 @@ function ReportView({
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Regression digest vs previous run (deploy-to-deploy diff) */}
+      {audit.regression && (
+        <div className="glass mb-6 rounded-2xl p-5">
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-fg">
+            🔁 Comparé au run précédent
+            <span
+              className="rounded px-2 py-0.5 text-[11px] font-bold uppercase"
+              style={{
+                background: audit.regression.status === "improved" ? "var(--color-matrix)22" : audit.regression.status === "regressed" ? "var(--color-critical)22" : "var(--color-surface)",
+                color: audit.regression.status === "improved" ? "var(--color-matrix)" : audit.regression.status === "regressed" ? "var(--color-critical)" : "var(--color-fg-faint)",
+              }}
+            >
+              {audit.regression.status === "improved" ? "amélioré" : audit.regression.status === "regressed" ? "régression" : "stable"}
+            </span>
+          </h3>
+          <p className="text-sm text-fg-muted">
+            Score {audit.regression.previousOverall} → <b className="text-fg">{audit.regression.currentOverall}</b>{" "}
+            <span style={{ color: audit.regression.scoreDelta >= 0 ? "var(--color-matrix)" : "var(--color-critical)" }}>
+              ({audit.regression.scoreDelta >= 0 ? "+" : ""}{audit.regression.scoreDelta})
+            </span>
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-critical">🆕 Nouveaux ({audit.regression.newFindings.length})</p>
+              <ul className="mt-1 space-y-1 text-xs text-fg-muted">
+                {audit.regression.newFindings.slice(0, 6).map((f, i) => <li key={i}>· <span className="uppercase text-fg-faint">{f.severity}</span> {f.title}</li>)}
+                {audit.regression.newFindings.length === 0 && <li className="text-fg-faint">Aucun nouveau problème 🎉</li>}
+              </ul>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-matrix">✅ Corrigés ({audit.regression.fixedFindings.length})</p>
+              <ul className="mt-1 space-y-1 text-xs text-fg-muted">
+                {audit.regression.fixedFindings.slice(0, 6).map((f, i) => <li key={i}>· <span className="uppercase text-fg-faint">{f.severity}</span> {f.title}</li>)}
+                {audit.regression.fixedFindings.length === 0 && <li className="text-fg-faint">—</li>}
+              </ul>
+            </div>
+          </div>
         </div>
       )}
 
