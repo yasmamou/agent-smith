@@ -10,6 +10,11 @@ function key() {
   return crypto.createHash("sha256").update(process.env.AUTH_SECRET || "dev-secret").digest();
 }
 
+/** One-way hash for API keys (stored at rest; never reversible). */
+export function hashToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
 export function encryptJson(obj: unknown): string {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", key(), iv);

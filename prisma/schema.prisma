@@ -17,7 +17,8 @@ model User {
   name         String?
   passwordHash String
   plan         String   @default("free") // free | starter | pro | team
-  apiKey       String?  @unique // for programmatic access (Claude Code / CI / MCP)
+  apiKeyHash   String?  @unique // sha256 of the API key (never store the key in clear)
+  apiKeyPrefix String?  // first chars, for display only
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

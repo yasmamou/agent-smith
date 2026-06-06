@@ -25,6 +25,21 @@ export async function POST(req: Request) {
   }
 
   const data = parsed.data;
+
+  // SSRF guard + rate limit
+  try {
+    const { assertPublicHttpUrl } = await import("@/lib/security/ssrf");
+    await assertPublicHttpUrl(data.targetUrl);
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "URL refusée" }, { status: 400 });
+  }
+  try {
+    const { assertWithinRate } = await import("@/lib/security/rate-limit");
+    await assertWithinRate(session.userId);
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Rate limit" }, { status: 429 });
+  }
+
   // Credentials are accepted but NEVER persisted in clear (see README §security).
   const config: AuditConfig = {
     targetUrl: data.targetUrl,

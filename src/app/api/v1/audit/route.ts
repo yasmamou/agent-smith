@@ -29,6 +29,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   const data = parsed.data;
+
+  // SSRF guard + rate limit
+  try {
+    const { assertPublicHttpUrl } = await import("@/lib/security/ssrf");
+    await assertPublicHttpUrl(data.targetUrl);
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "URL refusée" }, { status: 400 });
+  }
+  try {
+    const { assertWithinRate } = await import("@/lib/security/rate-limit");
+    await assertWithinRate(user.userId);
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Rate limit" }, { status: 429 });
+  }
+
   const config: AuditConfig = {
     targetUrl: data.targetUrl,
     mode: data.mode,

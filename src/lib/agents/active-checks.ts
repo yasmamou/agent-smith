@@ -54,6 +54,8 @@ function candidateUrls(crawl: CrawlResult, max = 6): { url: string; param: strin
 
 async function fetchText(url: string): Promise<{ status: number; text: string } | null> {
   try {
+    const { assertPublicHttpUrl } = await import("@/lib/security/ssrf");
+    await assertPublicHttpUrl(url); // SSRF guard on every probed URL
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 9000);
     const res = await fetch(url, {

@@ -6,14 +6,15 @@ import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/copy-button";
 
 export default function ApiPage() {
-  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState<string | null>(null); // full key, only just after (re)generation
+  const [prefix, setPrefix] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [reveal, setReveal] = useState(false);
 
   useEffect(() => {
     fetch("/api/account/api-key")
       .then((r) => r.json())
-      .then((d) => setApiKey(d.apiKey))
+      .then((d) => { setApiKey(d.apiKey); setPrefix(d.prefix || ""); if (d.justCreated) setReveal(true); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -22,12 +23,14 @@ export default function ApiPage() {
     setLoading(true);
     const d = await fetch("/api/account/api-key", { method: "POST" }).then((r) => r.json());
     setApiKey(d.apiKey);
+    setPrefix(d.prefix || "");
     setReveal(true);
     setLoading(false);
   }
 
-  const key = apiKey || "…";
-  const masked = apiKey ? apiKey.slice(0, 6) + "•".repeat(20) + apiKey.slice(-4) : "…";
+  // The key is hashed at rest → only visible right after (re)generation.
+  const key = apiKey || `${prefix || "as_xxx"}…`;
+  const masked = apiKey ? apiKey.slice(0, 6) + "•".repeat(20) + apiKey.slice(-4) : `${prefix}••••• (régénère pour révéler)`;
 
   const curl = `curl -X POST ${origin()}/api/v1/audit \\
   -H "Authorization: Bearer ${key}" \\

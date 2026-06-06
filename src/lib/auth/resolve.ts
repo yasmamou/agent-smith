@@ -11,8 +11,9 @@ export async function resolveUser(req?: Request): Promise<{ userId: string; emai
     const auth = req.headers.get("authorization") || "";
     const key = auth.match(/^bearer\s+(.+)$/i)?.[1] || req.headers.get("x-api-key") || undefined;
     if (key) {
+      const { hashToken } = await import("@/lib/security/crypto");
       const u = await prisma.user.findUnique({
-        where: { apiKey: key.trim() },
+        where: { apiKeyHash: hashToken(key.trim()) },
         select: { id: true, email: true },
       });
       if (u) return { userId: u.id, email: u.email };
