@@ -18,8 +18,9 @@ import type { SiteModel, WorkflowResult } from "@/types";
 
 async function crawl(config: AuditConfig): Promise<CrawlResult> {
   const forced = process.env.AUDIT_ENGINE?.toLowerCase();
-  const hasRemoteBrowser = !!process.env.BROWSERBASE_API_KEY;
-  // A configured remote browser (Browserbase) overrides a lingering mock flag.
+  const hasRemoteBrowser = !!(process.env.BROWSER_CDP_URL || process.env.BROWSERBASE_API_KEY);
+  // A configured remote browser (self-hosted CDP or Browserbase) overrides a
+  // lingering mock flag.
   if (forced === "mock" && !hasRemoteBrowser) return mockCrawl(config);
 
   // Try the REAL browser engine everywhere (local: full playwright; serverless:

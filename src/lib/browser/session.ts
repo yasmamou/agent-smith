@@ -2,10 +2,13 @@
  * Shared browser session factory used by BOTH the audit engine and the persona
  * journey engine, so everything runs the same way online and locally.
  *
- *  - BROWSERBASE_API_KEY set → hosted Chrome over CDP (works on Vercel serverless)
- *  - Local/dev → full `playwright` with its bundled browser
- *  - Serverless without Browserbase → playwright-core + @sparticuz/chromium
- *    (note: bare Vercel lacks libnss3, so this path usually fails → caller mocks)
+ * Connection priority:
+ *  1. BROWSER_CDP_URL  → ANY remote Chrome over CDP (self-hosted browserless,
+ *     your own server, etc.) — vendor-neutral, no per-session quota.
+ *  2. BROWSERBASE_API_KEY → Browserbase hosted Chrome (convenience SaaS).
+ *  3. Local/dev → full `playwright` with its bundled browser (free, unlimited).
+ *  4. Serverless without any remote → playwright-core + @sparticuz/chromium
+ *     (bare Vercel lacks libnss3, so this path usually fails → caller mocks).
  */
 import type { Browser, BrowserContext } from "playwright-core";
 
@@ -30,27 +33,41 @@ export function isBrowserbaseConfigured() {
   return !!process.env.BROWSERBASE_API_KEY;
 }
 
+/** True when any remote Chrome (self-hosted CDP or Browserbase) is configured. */
+export function isRemoteBrowserConfigured() {
+  return !!(process.env.BROWSER_CDP_URL || process.env.BROWSERBASE_API_KEY);
+}
+
+/** Build the CDP endpoint for whatever remote browser is configured, or null. */
+function remoteCdpUrl(): string | null {
+  if (process.env.BROWSER_CDP_URL) return process.env.BROWSER_CDP_URL;
+  const bbKey = process.env.BROWSERBASE_API_KEY;
+  if (bbKey) {
+    const projectId = process.env.BROWSERBASE_PROJECT_ID || "";
+    return `wss://connect.browserbase.com?apiKey=${bbKey}${projectId ? `&projectId=${projectId}` : ""}`;
+  }
+  return null;
+}
+
 export async function launchSession(opts: SessionOptions = {}): Promise<BrowserSession> {
   const viewport = opts.viewport ?? { width: 1366, height: 850 };
   const userAgent = opts.userAgent ?? DEFAULT_UA;
 
-  const bbKey = process.env.BROWSERBASE_API_KEY;
-  if (bbKey) {
-    // Serialize remote sessions through the DB-backed pool (Browserbase free tier
+  const cdpUrl = remoteCdpUrl();
+  if (cdpUrl) {
+    // Serialize remote sessions through the DB-backed pool (free tiers are often
     // ≈ 1 concurrent). Wait for a slot; if none frees in time, signal the caller
     // so it can fall back (mock for technical, loud failure for authenticated).
     const { acquireSlot } = await import("./pool");
     const slot = await acquireSlot(opts.holder ?? "audit", opts.maxWaitMs ?? 150_000);
     if (!slot) {
-      const err = new Error("Browser pool busy — no free Browserbase slot.");
+      const err = new Error("Browser pool busy — no free remote browser slot.");
       (err as Error & { code?: string }).code = "BROWSER_POOL_BUSY";
       throw err;
     }
     try {
-      const projectId = process.env.BROWSERBASE_PROJECT_ID || "";
       const { chromium } = await import("playwright-core");
-      const wsUrl = `wss://connect.browserbase.com?apiKey=${bbKey}${projectId ? `&projectId=${projectId}` : ""}`;
-      const browser = await chromium.connectOverCDP(wsUrl);
+      const browser = await chromium.connectOverCDP(cdpUrl);
       const context = browser.contexts()[0] ?? (await browser.newContext());
       // Release the slot when the browser closes (success or error path).
       const origClose = browser.close.bind(browser);
