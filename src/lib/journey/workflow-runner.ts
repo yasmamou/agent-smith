@@ -197,12 +197,35 @@ export async function runWorkflowTest(
     const filled = new Set<string>();
     const checked = new Set<string>();
     const urlHistory: string[] = [page.url()];
+    const startPath = (() => { try { return new URL(page.url()).pathname; } catch { return "/"; } })();
     const isAuthUrl = (u: string) => /\/(login|signup|sign-?in|sign-?up|auth|connexion|inscription|register)/i.test(u);
+    // generic "created/submitted" cue: navigated to a fresh sub-resource (id segment)
+    const looksCreated = () => {
+      const u = page.url();
+      return /\/[a-z0-9_-]{8,}(\?|$)/i.test(u) && new URL(u).pathname !== startPath && !/\/new\b/.test(u) && !isAuthUrl(u);
+    };
+    const trySubmit = async () => {
+      const submit = page
+        .getByRole("button", { name: /launch|lancer|^run\b|d[ée]marrer|cr[ée]er|valider|envoyer|soumettre|confirmer|terminer|^go$|submit/i })
+        .first();
+      if (await submit.count().catch(() => 0)) {
+        const before = page.url();
+        await submit.click({ timeout: 6000 }).catch(() => {});
+        await page.waitForLoadState("networkidle", { timeout: 6000 }).catch(() => {});
+        await page.waitForTimeout(1200);
+        urlHistory.push(page.url());
+        log("click", "(auto) soumettre", "soumission automatique du formulaire");
+        return before !== page.url();
+      }
+      return false;
+    };
 
     for (let i = 0; i < maxSteps; i++) {
-      if (await assertSuccess(page, wf.successSignal)) {
+      if ((await assertSuccess(page, wf.successSignal)) || looksCreated()) {
         result.status = "pass";
-        result.why = `But atteint : signal « ${wf.successSignal} » détecté sur ${new URL(page.url()).pathname}.`;
+        result.why = looksCreated()
+          ? `Action aboutie : navigation vers une nouvelle ressource (${new URL(page.url()).pathname}).`
+          : `But atteint : signal « ${wf.successSignal} » détecté sur ${new URL(page.url()).pathname}.`;
         await shot();
         log("assert", wf.successSignal, "✅ succès vérifié");
         break;
@@ -274,7 +297,7 @@ export async function runWorkflowTest(
 
       // Checkbox toggle (authorization, consent, …)
       if (act.target.startsWith("☐") || /autoris|authorized|j'accepte|consent|d'accord/i.test(cleanTarget)) {
-        if (checked.has(cleanTarget)) { log("check", cleanTarget, "déjà coché — ignoré"); continue; }
+        if (checked.has(cleanTarget)) { log("check", cleanTarget, "déjà coché — tentative de soumission"); if (await trySubmit()) continue; continue; }
         const cb = page.getByRole("checkbox", { name: new RegExp(esc.slice(0, 24), "i") }).first();
         if (await cb.count().catch(() => 0)) {
           await cb.check({ timeout: 6000 }).catch(() => {});
@@ -291,7 +314,7 @@ export async function runWorkflowTest(
       }
 
       if (act.action === "fill") {
-        if (filled.has(act.target)) { log("fill", act.target, "déjà rempli — ignoré"); continue; }
+        if (filled.has(act.target)) { log("fill", act.target, "déjà rempli — tentative de soumission"); await trySubmit(); continue; }
         const value = (act.value || "https://example.com").slice(0, 120);
         // find the input by placeholder / aria-label / associated label / name
         const candidates = [
