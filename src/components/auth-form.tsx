@@ -8,6 +8,7 @@ import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { MatrixRain } from "@/components/matrix-rain";
+import { getAgentProfile } from "@/lib/agents/profiles";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
@@ -15,6 +16,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isSignup = mode === "signup";
+  const agent = getAgentProfile(params.get("agent") || "");
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -75,6 +77,18 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         <p className="mt-1.5 text-sm text-fg-muted">
           {isSignup ? "Start auditing your deploys in minutes." : "Sign in to run and review audits."}
         </p>
+
+        {agent && (
+          <div className="mt-4 flex items-start gap-3 rounded-xl border border-matrix-dim/40 bg-matrix/5 p-3">
+            <span className="text-2xl">{agent.avatar}</span>
+            <div>
+              <p className="text-sm font-semibold text-fg">
+                Tu vas utiliser <span className="text-matrix">{agent.name}</span>
+              </p>
+              <p className="text-xs text-fg-muted">{agent.specialty} — {agent.tagline}</p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           {isSignup && (

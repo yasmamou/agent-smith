@@ -140,6 +140,12 @@ export async function runAudit(config: AuditConfig, opts: RunAuditOptions = {}):
   }
 
   const scores = computeScores(findings);
+  // Workflow-health: a blocked/failed primary workflow drags the overall score
+  // (a site can be "well built" yet not actually work). Skipped = no effect.
+  if (workflow && workflow.status !== "skipped") {
+    workflow.health = workflow.status === "pass" ? 100 : workflow.status === "blocked" ? 60 : 15;
+    scores.overall = Math.round(scores.overall * 0.7 + workflow.health * 0.3);
+  }
   const pages = toPageVisits(crawlResult);
   const uxSuggestions = buildUxSuggestions(findings);
   const fixPrompt = buildFixPrompt(findings, config);

@@ -114,7 +114,7 @@ export function buildReportHtml(d: ReportData): string {
       body += `<h2>🧠 Compréhension &amp; test du workflow</h2>`;
       if (d.siteModel) body += `<p class="meta"><b>Type d'app :</b> ${esc(d.siteModel.appType)} — ${esc(d.siteModel.purpose)}</p>`;
       if (w) {
-        body += `<div class="rec" style="border-left-color:${stColor}"><b>Workflow « ${esc(w.goal)} » → <span style="color:${stColor}">${esc(w.status)}</span></b><br>${esc(w.why)}</div>`;
+        body += `<div class="rec" style="border-left-color:${stColor}"><b>Workflow « ${esc(w.goal)} » → <span style="color:${stColor}">${esc(w.status)}</span>${typeof w.health === "number" ? ` · santé ${w.health}/100` : ""}</b><br>${esc(w.why)}</div>`;
         if (w.steps?.length) body += `<ol style="font-size:10px;color:#33503f;margin:4px 0 0 16px">${w.steps.map((s) => `<li>${esc(s.action)} ${esc(s.target)}${s.note ? " — " + esc(s.note) : ""}</li>`).join("")}</ol>`;
       }
     }

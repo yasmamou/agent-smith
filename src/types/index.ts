@@ -85,6 +85,7 @@ export interface WorkflowResult {
   why: string;
   steps: WorkflowStep[];
   screenshots: string[]; // data URIs
+  health?: number; // 0-100 — how healthy the primary workflow is
 }
 
 export interface AuditReport {

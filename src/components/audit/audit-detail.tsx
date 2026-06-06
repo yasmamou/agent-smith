@@ -19,7 +19,7 @@ import { FindingCard } from "@/components/audit/finding-card";
 import { CopyButton } from "@/components/copy-button";
 import { MatrixRain } from "@/components/matrix-rain";
 import { SeverityBadge } from "@/components/severity-badge";
-import { safeHost, cn } from "@/lib/utils";
+import { safeHost, cn, scoreColor } from "@/lib/utils";
 import type { JourneyResult } from "@/lib/journey/types";
 import type { SiteModel, WorkflowResult } from "@/types";
 
@@ -434,6 +434,9 @@ function ReportView({
                   {audit.workflow.status === "pass" ? "✅ réussi" : audit.workflow.status === "blocked" ? "⚠ bloqué" : audit.workflow.status}
                 </span>
                 <span className="text-sm font-medium text-fg">Workflow : {audit.workflow.goal}</span>
+                {typeof audit.workflow.health === "number" && (
+                  <span className="ml-auto text-xs text-fg-faint">santé <b style={{ color: scoreColor(audit.workflow.health) }}>{audit.workflow.health}</b>/100</span>
+                )}
               </div>
               <p className="mt-2 text-sm text-fg-muted">{audit.workflow.why}</p>
               {audit.workflow.steps?.length > 0 && (
