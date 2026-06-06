@@ -309,6 +309,8 @@ export async function runWorkflowTest(
         if (clicked) checked.add(cleanTarget);
         log("check", cleanTarget, clicked ? "✅ coché" : "case introuvable");
         await page.waitForTimeout(250);
+        // consent is usually the last gate before submit → try to submit now
+        if (clicked && filled.size > 0) await trySubmit();
         urlHistory.push(page.url());
         if (clicked) continue;
       }
