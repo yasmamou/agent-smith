@@ -109,6 +109,10 @@ export async function runWorkflowTest(
     log("goto", wf.entryPath, "Entrée du parcours");
     await shot();
 
+    const tried = new Map<string, number>();
+    const urlHistory: string[] = [page.url()];
+    const isAuthUrl = (u: string) => /\/(login|signup|sign-?in|sign-?up|auth|connexion|inscription|register)/i.test(u);
+
     for (let i = 0; i < maxSteps; i++) {
       if (await assertSuccess(page, wf.successSignal)) {
         result.status = "pass";
@@ -118,22 +122,35 @@ export async function runWorkflowTest(
         break;
       }
 
+      // Auth-wall detection: bouncing between login/signup ⇒ the goal needs a
+      // write-path (account creation / form submit) we don't do in read-only mode.
+      const recentUrls = urlHistory.slice(-4);
+      if (recentUrls.length >= 3 && recentUrls.filter(isAuthUrl).length >= 3) {
+        result.status = "blocked";
+        result.why = `Mur d'authentification : le parcours « ${wf.goal} » exige la création d'un compte / la soumission d'un formulaire. Non franchissable en lecture seule — à tester en mode authentifié (write-path) avec un compte de test.`;
+        log("assert", "auth-wall", "🔒 inscription/connexion requise");
+        await shot();
+        break;
+      }
+
       const inventory = (await page.evaluate(INVENTORY_FN).catch(() => [])) as string[];
       if (!inventory.length) {
         result.status = "blocked";
-        result.why = "Aucun élément interactif détecté pour progresser.";
+        result.why = "Aucun élément interactif standard détecté (UI custom/canvas ?) — parcours non automatisable en l'état.";
         break;
       }
 
       const recent = result.steps.slice(-4).map((s) => `${s.action} ${s.target}`).join(" → ");
+      const alreadyTried = Array.from(tried.keys());
       const decision = await aiComplete(
         `Tu es un agent QA qui pilote un navigateur pour accomplir un objectif utilisateur.\n` +
           `OBJECTIF : ${wf.goal}\nSIGNAL DE SUCCÈS attendu : « ${wf.successSignal} »\n` +
           `URL actuelle : ${page.url()}\nActions déjà faites : ${recent || "(aucune)"}\n` +
+          `NE RÉPÈTE PAS ces cibles déjà essayées sans effet : ${JSON.stringify(alreadyTried)}\n` +
           `Éléments cliquables visibles : ${JSON.stringify(inventory)}\n\n` +
-          `Choisis LA prochaine action qui rapproche du but. Réponds STRICTEMENT en JSON :\n` +
+          `Choisis LA prochaine action qui rapproche du but (une cible NON déjà essayée si possible). Réponds STRICTEMENT en JSON :\n` +
           `{"action":"click"|"done","target":"texte EXACT d'un élément de la liste","reason":"court"}\n` +
-          `Utilise "done" seulement si tu penses le but déjà atteint.`,
+          `Utilise "done" seulement si le but est déjà atteint ou réellement inatteignable sans compte.`,
         { json: true, maxTokens: 120 }
       );
       const act = parseAiJson<{ action: string; target: string; reason: string }>(decision, {
@@ -144,6 +161,17 @@ export async function runWorkflowTest(
 
       if (act.action === "done") {
         log("done", "", act.reason || "agent arrête");
+        break;
+      }
+
+      // Loop guard: same target chosen repeatedly ⇒ stuck.
+      const count = (tried.get(act.target) || 0) + 1;
+      tried.set(act.target, count);
+      if (count >= 2) {
+        result.status = "blocked";
+        result.why = `Boucle détectée (action « ${act.target} » répétée) : le parcours « ${wf.goal} » semble nécessiter une saisie/soumission (write-path) non effectuée en lecture seule.`;
+        log("assert", act.target, "↻ boucle — arrêt");
+        await shot();
         break;
       }
 
@@ -160,6 +188,7 @@ export async function runWorkflowTest(
       await page.waitForLoadState("networkidle", { timeout: 6000 }).catch(() => {});
       await page.waitForTimeout(700);
       await killOverlays(page);
+      urlHistory.push(page.url());
       if (i < 2) await shot();
     }
 
