@@ -1,20 +1,29 @@
 /**
  * Provider-agnostic LLM helper for the hybrid agents.
- *  - ANTHROPIC_API_KEY set → Claude (PREFERRED)
+ *  - AI_PROVIDER=claude-cli (or CLAUDE_CLI=1) → the local Claude Code CLI
+ *    (`claude -p`) acts as the brain. Tokens go through the Claude Code session,
+ *    NO API key needed. Used to dogfood: Claude Code IS the engine's LLM.
+ *  - ANTHROPIC_API_KEY set → Claude API (PREFERRED among keys)
  *  - OPENAI_API_KEY set    → OpenAI Chat Completions (fallback, default gpt-4o-mini)
- *  - neither               → returns null (caller falls back to heuristics)
+ *  - none                  → returns null (caller falls back to heuristics)
  *
- * Override the choice with AI_PROVIDER="anthropic" | "openai".
+ * Override the choice with AI_PROVIDER="claude-cli" | "anthropic" | "openai".
  * Used for: report narrative, UX judgment, intelligent QCM answering, synthesis,
  * site-model inference, agentic workflow decisions, strategic platform avis.
  */
 
-export function aiEnabled() {
-  return !!(process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY);
+function claudeCliEnabled() {
+  const forced = process.env.AI_PROVIDER?.toLowerCase();
+  return forced === "claude-cli" || process.env.CLAUDE_CLI === "1";
 }
 
-export function aiProvider(): "openai" | "anthropic" | "none" {
+export function aiEnabled() {
+  return claudeCliEnabled() || !!(process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY);
+}
+
+export function aiProvider(): "claude-cli" | "openai" | "anthropic" | "none" {
   const forced = process.env.AI_PROVIDER?.toLowerCase();
+  if (claudeCliEnabled()) return "claude-cli";
   if (forced === "anthropic" && process.env.ANTHROPIC_API_KEY) return "anthropic";
   if (forced === "openai" && process.env.OPENAI_API_KEY) return "openai";
   // Default preference: Claude first, OpenAI as fallback.
@@ -57,6 +66,43 @@ async function completeAnthropic(prompt: string, opts: CompleteOpts): Promise<st
   }
 }
 
+/**
+ * Use the local Claude Code CLI (`claude -p`) as the LLM. The prompt (with system
+ * + optional JSON instruction) is piped to stdin; stdout is the completion.
+ * Tokens are billed to the Claude Code session — no API key. Slower (one process
+ * per call) but high quality (session model, e.g. Opus).
+ */
+async function completeClaudeCli(prompt: string, opts: CompleteOpts): Promise<string | null> {
+  try {
+    const { spawn } = await import("node:child_process");
+    const bin = process.env.CLAUDE_CLI_BIN || "claude";
+    const input = [
+      opts.system,
+      opts.json ? "Réponds avec un seul objet JSON valide et rien d'autre (pas de texte autour, pas de balises de code)." : "",
+      prompt,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    return await new Promise<string | null>((resolve) => {
+      const child = spawn(bin, ["-p", "--output-format", "text"], {
+        stdio: ["pipe", "pipe", "ignore"],
+      });
+      let out = "";
+      let settled = false;
+      const done = (v: string | null) => { if (!settled) { settled = true; resolve(v); } };
+      const timer = setTimeout(() => { try { child.kill("SIGKILL"); } catch { /* noop */ } done(null); }, 180_000);
+      child.stdout.on("data", (d) => { out += d.toString(); });
+      child.on("error", () => { clearTimeout(timer); done(null); });
+      child.on("close", () => { clearTimeout(timer); done(out.trim() || null); });
+      child.stdin.write(input);
+      child.stdin.end();
+    });
+  } catch {
+    return null;
+  }
+}
+
 async function completeOpenai(prompt: string, opts: CompleteOpts): Promise<string | null> {
   const openaiKey = process.env.OPENAI_API_KEY;
   if (!openaiKey) return null;
@@ -86,6 +132,14 @@ async function completeOpenai(prompt: string, opts: CompleteOpts): Promise<strin
 
 export async function aiComplete(prompt: string, opts: CompleteOpts = {}): Promise<string | null> {
   const provider = aiProvider();
+  if (provider === "claude-cli") {
+    // Claude Code is the brain; fall back to keys only if the CLI fails.
+    return (
+      (await completeClaudeCli(prompt, opts)) ??
+      (await completeAnthropic(prompt, opts)) ??
+      (await completeOpenai(prompt, opts))
+    );
+  }
   // Try the preferred provider, then transparently fall back to the other.
   if (provider === "anthropic") {
     return (await completeAnthropic(prompt, opts)) ?? (await completeOpenai(prompt, opts));
