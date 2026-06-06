@@ -63,6 +63,43 @@ async function killOverlays(page: PWPage) {
 
 type PWPage = Page;
 
+/**
+ * Perception via the ACCESSIBILITY TREE (role + accessible name) — more robust
+ * than CSS selectors, covers more control types (combobox, switch, tab, slider).
+ * Falls back to the DOM inventory when unavailable.
+ */
+async function a11yInventory(
+  page: PWPage
+): Promise<{ clickables: string[]; fields: { label: string; type: string }[] } | null> {
+  try {
+    // ariaSnapshot returns a YAML-ish aria tree: lines like `- button "Save"`.
+    const yaml = await page.locator("body").ariaSnapshot({ timeout: 5000 });
+    if (!yaml) return null;
+    const clickables: string[] = [];
+    const fields: { label: string; type: string }[] = [];
+    const seen = new Set<string>();
+    const re = /^\s*-\s+([a-z]+)(?:\s+"([^"]*)")?/;
+    for (const line of yaml.split("\n")) {
+      const m = line.match(re);
+      if (!m) continue;
+      const role = m[1];
+      const name = (m[2] || "").trim();
+      if (!name || name.length > 50) continue;
+      if (["button", "link", "tab", "menuitem"].includes(role)) {
+        if (!seen.has(name)) { seen.add(name); clickables.push(name); }
+      } else if (["textbox", "searchbox", "combobox", "listbox", "spinbutton", "slider"].includes(role)) {
+        fields.push({ label: name, type: role === "combobox" || role === "listbox" ? "select-one" : role });
+      } else if (["checkbox", "switch", "radio"].includes(role)) {
+        if (!seen.has(name)) { seen.add(name); clickables.push("☐ " + name); }
+      }
+    }
+    if (!clickables.length && !fields.length) return null;
+    return { clickables: clickables.slice(0, 24), fields: fields.slice(0, 12) };
+  } catch {
+    return null;
+  }
+}
+
 async function assertSuccess(page: PWPage, signal: string): Promise<boolean> {
   if (!signal) return false;
   const s = signal.trim();
@@ -263,10 +300,12 @@ export async function runWorkflowTest(
         break;
       }
 
-      const inv = (await page.evaluate(INVENTORY_FN).catch(() => ({ clickables: [], fields: [] }))) as {
-        clickables: string[];
-        fields: { label: string; type: string }[];
-      };
+      const inv =
+        (await a11yInventory(page)) ||
+        ((await page.evaluate(INVENTORY_FN).catch(() => ({ clickables: [], fields: [] }))) as {
+          clickables: string[];
+          fields: { label: string; type: string }[];
+        });
       if (!inv.clickables.length && !inv.fields.length) {
         result.status = "blocked";
         result.why = "Aucun élément interactif standard détecté (UI custom/canvas ?) — parcours non automatisable en l'état.";
