@@ -159,6 +159,23 @@ model BrowserSlot {
   updatedAt DateTime  @updatedAt
 }
 
+// Anonymous "try it free" audits from the landing page. Doubles as an
+// IP rate-limiter (count by ip over the last hour), a short cache (reuse a
+// recent result for the same URL), and a top-of-funnel analytics signal.
+model PublicAudit {
+  id        String   @id @default(cuid())
+  ip        String
+  targetUrl String
+  engine    String?  // playwright | mock
+  overall   Int      @default(0)
+  scores    String?  // AuditScores JSON
+  teaser    String?  // JSON: { findings: [top 2], hiddenCount }
+  createdAt DateTime @default(now())
+
+  @@index([ip, createdAt])
+  @@index([targetUrl, createdAt])
+}
+
 model AgentProfile {
   id          String  @id @default(cuid())
   slug        String  @unique

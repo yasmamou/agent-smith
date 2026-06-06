@@ -41,6 +41,10 @@ export default function NewAuditPage() {
   const [agentSlug, setAgentSlug] = useState<string | null>(null);
   const [presetSlug, setPresetSlug] = useState<string | null>(null);
   const [agentName, setAgentName] = useState<string>("");
+  // Prefill the URL when arriving from the landing "try it free" handoff (?url=).
+  const [prefillUrl] = useState(() =>
+    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("url") || "" : ""
+  );
 
   // ?agent=<slug> → custom agent · ?preset=<slug> → official marketplace agent
   useEffect(() => {
@@ -128,6 +132,7 @@ export default function NewAuditPage() {
             name="targetUrl"
             type="url"
             required
+            defaultValue={prefillUrl}
             placeholder="https://my-app.vercel.app"
             className="font-mono"
           />

@@ -1,11 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Sparkles } from "lucide-react";
 import { MatrixRain } from "@/components/matrix-rain";
 import { AuditTerminal } from "./audit-terminal";
+import { TryAudit } from "./try-audit";
 
 export function Hero() {
   return (
@@ -50,16 +49,13 @@ export function Hero() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.18 }}
-            className="mt-8 flex flex-wrap items-center gap-3"
           >
-            <Link href="/signup">
-              <Button size="lg">
-                Run your first audit <ArrowRight />
-              </Button>
-            </Link>
-            <a href="#sample">
-              <Button size="lg" variant="outline">See a sample report</Button>
-            </a>
+            <TryAudit />
+            <div className="mt-3">
+              <a href="#sample" className="text-sm text-fg-muted underline-offset-4 hover:text-fg hover:underline">
+                ou regarde un exemple de rapport →
+              </a>
+            </div>
           </motion.div>
 
           <motion.div
