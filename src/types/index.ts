@@ -136,8 +136,8 @@ export interface AgentProfile {
   /** catalogue check ids this agent runs (makes the preset actually runnable) */
   checks?: string[];
   aiInstructions?: string;
-  /** when true, the audit also produces a strategic platform analysis (AI). */
-  strategy?: boolean;
+  /** advisor lens this agent runs (Néo=strategy, Trinity=sales, Oracle=design). */
+  advisor?: "strategy" | "sales" | "design";
 }
 
 /** One strategic, product/platform-level recommendation (beyond tech bugs). */
@@ -154,4 +154,6 @@ export interface StrategyResult {
   thesis: string; // one-paragraph strategic read of the product
   topPriority: string; // the single highest-leverage move
   recommendations: StrategyRecommendation[];
+  lens?: "strategy" | "sales" | "design"; // which advisor produced this
+  agentName?: string; // e.g. "Agent Néo" | "Agent Trinity" | "Agent Oracle"
 }

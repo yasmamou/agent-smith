@@ -96,7 +96,45 @@ export const AGENT_PROFILES: AgentProfile[] = [
     checks: ["first-run", "empty-states", "heading-hierarchy", "form-labels", "broken-links"],
     aiInstructions:
       "Analyse stratégique produit/plateforme : positionnement, activation, rétention, monétisation, acquisition, confiance, mesure. Priorise par effet de levier.",
-    strategy: true,
+    advisor: "strategy",
+  },
+  {
+    slug: "agent-trinity",
+    name: "Agent Trinity",
+    tagline: "Conversion & vente — le bilan CRO",
+    specialty: "Sales / CRO (taux de conversion)",
+    testingStyle:
+      "Regarde le site sous l'angle VENTE : clarté du hero, CTA, preuve sociale, tunnel, friction, pricing, urgence. Dit concrètement « mets ça plutôt que ça » et propose des tests A/B pour convertir plus.",
+    price: "€19",
+    priceNote: "par analyse",
+    rating: 4.9,
+    reviews: 64,
+    accent: "#ff5db1",
+    avatar: "💎",
+    premium: true,
+    focus: ["ux", "functional"],
+    checks: ["first-run", "empty-states", "heading-hierarchy", "broken-links"],
+    aiInstructions: "Bilan conversion/CRO : hero, CTA, preuve sociale, tunnel, friction, pricing, urgence. Actionnable.",
+    advisor: "sales",
+  },
+  {
+    slug: "agent-oracle",
+    name: "Agent Oracle",
+    tagline: "Design & craft UI — niveau Linear/Stripe",
+    specialty: "Design / UI (direction artistique)",
+    testingStyle:
+      "Juge le craft visuel : hiérarchie, espacement, typographie, palette/contraste, cohérence, profondeur, états et motion. Propose des améliorations graphiques précises (valeurs, échelles, do/don't).",
+    price: "€19",
+    priceNote: "par analyse",
+    rating: 4.8,
+    reviews: 41,
+    accent: "#5bd1ff",
+    avatar: "🔮",
+    premium: true,
+    focus: ["ui", "ux"],
+    checks: ["contrast", "heading-hierarchy", "viewport-meta", "img-alt", "first-run"],
+    aiInstructions: "Critique design/UI : hiérarchie, espacement, typo, couleur, cohérence, profondeur, états, motion. Précis et applicable.",
+    advisor: "design",
   },
   {
     slug: "agent-theo",
@@ -129,7 +167,7 @@ export function presetAgentConfig(slug: string) {
     aiInstructions: p.aiInstructions,
     accent: p.accent,
     avatar: p.avatar,
-    strategy: !!p.strategy,
+    advisor: p.advisor,
   };
 }
 

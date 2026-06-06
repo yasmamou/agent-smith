@@ -90,6 +90,8 @@ export interface RunAuditOptions {
   allowWrites?: boolean;
   /** also produce a strategic platform analysis (Agent Néo / strategist) */
   strategy?: boolean;
+  /** advisor lens to run: strategy (Néo) | sales (Trinity) | design (Oracle) */
+  advisor?: "strategy" | "sales" | "design";
 }
 
 /**
@@ -142,14 +144,15 @@ export async function runAudit(config: AuditConfig, opts: RunAuditOptions = {}):
     }
   }
 
-  // ---- Strategy layer (Agent Néo): product/platform analysis beyond bugs ----
+  // ---- Advisor layer (Néo strategy / Trinity sales / Oracle design) ----
   let strategy: import("@/types").StrategyResult | null = null;
-  if (opts.strategy && aiEnabled() && crawlResult.engine === "playwright") {
+  const advisorLens = opts.advisor ?? (opts.strategy ? "strategy" : undefined);
+  if (advisorLens && aiEnabled() && crawlResult.engine === "playwright") {
     try {
-      const { generateStrategy } = await import("@/lib/strategy/advisor");
-      strategy = await generateStrategy(crawlResult, siteModel, findings);
+      const { generateAdvice } = await import("@/lib/strategy/advisor");
+      strategy = await generateAdvice(advisorLens, crawlResult, siteModel, findings);
     } catch {
-      /* strategy is additive — never sink the audit */
+      /* advisor is additive — never sink the audit */
     }
   }
 

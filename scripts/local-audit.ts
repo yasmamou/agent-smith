@@ -81,7 +81,8 @@ async function main() {
     console.error("   Real local Chromium · no cloud · this may take 20–90s…\n");
   }
 
-  const report = await runAudit(config, { allowWrites, creds, runWorkflow: true, strategy: has("--strategy") });
+  const advisor = has("--sales") ? "sales" : has("--design") ? "design" : has("--strategy") ? "strategy" : undefined;
+  const report = await runAudit(config, { allowWrites, creds, runWorkflow: true, advisor });
 
   if (jsonOnly) {
     process.stdout.write(JSON.stringify(report, null, 2));
@@ -106,7 +107,7 @@ async function main() {
     .forEach((f) => console.log(`  [${f.severity.toUpperCase()}] ${f.title} — ${f.recommendedFix.slice(0, 90)}`));
 
   if (report.strategy) {
-    console.log(`\n🧠 Stratégie (Agent Néo):`);
+    console.log(`\n🧠 ${report.strategy.agentName || "Conseil"} (${report.strategy.lens || "strategy"}):`);
     console.log(`   ${report.strategy.topPriority}`);
     report.strategy.recommendations.slice(0, 8).forEach((r) =>
       console.log(`   [${r.impact.toUpperCase()} · ${r.lever}] ${r.title}`)
