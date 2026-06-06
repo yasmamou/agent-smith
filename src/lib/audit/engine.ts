@@ -83,6 +83,8 @@ export interface RunAuditOptions {
   aiInstructions?: string;
   /** set false to skip the agentic workflow test (e.g. lighter custom audits) */
   runWorkflow?: boolean;
+  /** test credentials → write-path workflow (the agent logs in first) */
+  creds?: { email: string; password: string };
 }
 
 /**
@@ -128,7 +130,7 @@ export async function runAudit(config: AuditConfig, opts: RunAuditOptions = {}):
       siteModel = await inferSiteModel(crawlResult);
       if (siteModel) {
         const { runWorkflowTest } = await import("@/lib/journey/workflow-runner");
-        workflow = await runWorkflowTest(config.targetUrl, siteModel);
+        workflow = await runWorkflowTest(config.targetUrl, siteModel, { creds: opts.creds });
       }
     } catch {
       /* the intelligence layer must never sink the core audit */

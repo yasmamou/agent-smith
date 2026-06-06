@@ -27,23 +27,33 @@ export async function executeAudit(auditId: string): Promise<RunResult> {
   await setAuditStatus(auditId, "running");
 
   try {
-    if (audit.type === "persona" || audit.type === "authenticated") {
+    // Persona journey (public funnel UX, keyword-driven personas).
+    if (audit.type === "persona") {
       const persona = getPersona(audit.persona || "") ?? PERSONAS[0];
+      const journey = await runPersonaJourney(audit.targetUrl, persona, {});
+      await persistJourney(auditId, journey);
+      return { ok: true, status: "completed", type: audit.type, experienceScore: journey.experienceScore, gated: journey.gated };
+    }
+
+    // Authenticated audit = full technical audit + WRITE-PATH workflow test:
+    // the agent logs in with the test account and drives the real workflow.
+    if (audit.type === "authenticated") {
       let creds: { email: string; password: string } | undefined;
-      if (audit.type === "authenticated" && audit.credEnc) {
+      if (audit.credEnc) {
         const { decryptJson } = await import("@/lib/security/crypto");
         creds = decryptJson<{ email: string; password: string }>(audit.credEnc) ?? undefined;
       }
-      const journey = await runPersonaJourney(audit.targetUrl, persona, { creds });
-      await persistJourney(auditId, journey);
-      await prisma.audit.update({ where: { id: auditId }, data: { credEnc: null } }).catch(() => {});
-      return {
-        ok: true,
-        status: "completed",
-        type: audit.type,
-        experienceScore: journey.experienceScore,
-        gated: journey.gated,
+      const config: AuditConfig = {
+        targetUrl: audit.targetUrl,
+        mode: audit.mode as AuditMode,
+        agentsCount: audit.agentsCount,
+        durationMinutes: audit.durationMin,
+        instructions: audit.instructions ?? undefined,
       };
+      const report = await runAudit(config, { creds });
+      await persistReport(auditId, report);
+      await prisma.audit.update({ where: { id: auditId }, data: { credEnc: null } }).catch(() => {});
+      return { ok: true, status: "completed", type: audit.type, scores: report.scores, engine: report.engine };
     }
 
     const config: AuditConfig = {

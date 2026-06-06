@@ -12,20 +12,36 @@ import { aiComplete, parseAiJson } from "@/lib/ai/provider";
  */
 
 const INVENTORY_FN = `(() => {
+  const vis = (e) => { const r = e.getBoundingClientRect(); return r.width > 2 && r.height > 2; };
   const seen = new Set();
-  const out = [];
-  const els = Array.from(document.querySelectorAll('a[href], button, [role="button"], [role="tab"]'));
-  for (const e of els) {
+  const clickables = [];
+  for (const e of Array.from(document.querySelectorAll('a[href], button, [role="button"], [role="tab"]'))) {
     const t = (e.innerText || e.textContent || '').trim().replace(/\\s+/g,' ');
-    if (!t || t.length > 40) continue;
-    const r = e.getBoundingClientRect();
-    if (r.width < 2 || r.height < 2) continue;
-    if (seen.has(t)) continue;
-    seen.add(t);
-    out.push(t);
-    if (out.length >= 24) break;
+    if (!t || t.length > 40 || seen.has(t) || !vis(e)) continue;
+    seen.add(t); clickables.push(t);
+    if (clickables.length >= 22) break;
   }
-  return out;
+  const fields = [];
+  for (const i of Array.from(document.querySelectorAll('input, textarea, select'))) {
+    if (['hidden','submit','button','checkbox','radio'].includes(i.type) || !vis(i)) continue;
+    let label = i.getAttribute('aria-label') || i.getAttribute('placeholder') || '';
+    if (!label && i.id) { const l = document.querySelector('label[for="' + CSS.escape(i.id) + '"]'); if (l) label = (l.textContent||'').trim(); }
+    if (!label) label = i.getAttribute('name') || i.type || 'champ';
+    fields.push({ label: label.trim().slice(0,40), type: i.type || i.tagName.toLowerCase() });
+    if (fields.length >= 12) break;
+  }
+  // expose checkbox labels as clickable (toggling consent/authorization)
+  for (const cb of Array.from(document.querySelectorAll('input[type=checkbox]'))) {
+    if (!vis(cb)) continue;
+    let label = cb.getAttribute('aria-label') || '';
+    const wrap = cb.closest('label');
+    if (!label && wrap) label = (wrap.textContent||'').trim();
+    if (!label && cb.id) { const l = document.querySelector('label[for="' + CSS.escape(cb.id) + '"]'); if (l) label = (l.textContent||'').trim(); }
+    // keep only the first sentence/line so it is matchable
+    label = (label.split(/[.\\n]/)[0] || label).trim();
+    if (label) { const s = label.slice(0,40); if (!seen.has(s)) { seen.add(s); clickables.push("☐ " + s); } }
+  }
+  return { clickables, fields };
 })()`;
 
 async function killOverlays(page: PWPage) {
@@ -58,12 +74,45 @@ async function assertSuccess(page: PWPage, signal: string): Promise<boolean> {
   return false;
 }
 
+/** Generic login: find email+password (on /login or /auth/signin), submit, wait for redirect off auth. */
+async function loginFlow(
+  page: PWPage,
+  target: string,
+  creds: { email: string; password: string }
+): Promise<boolean> {
+  for (const path of ["/login", "/auth/signin", "/signin", "/connexion"]) {
+    try {
+      await page.goto(new URL(path, target).href, { waitUntil: "domcontentloaded", timeout: 20000 });
+    } catch {
+      continue;
+    }
+    await page.waitForTimeout(700);
+    for (const re of [/^tout accepter$|^accepter$/i]) {
+      const e = page.getByRole("button", { name: re }).first();
+      if (await e.count().catch(() => 0)) await e.click().catch(() => {});
+    }
+    const email = page.locator('input[type="email"], input[name*="mail" i]').first();
+    const pass = page.locator('input[type="password"]').first();
+    if (!(await email.count().catch(() => 0)) || !(await pass.count().catch(() => 0))) continue;
+    await email.fill(creds.email).catch(() => {});
+    await pass.fill(creds.password).catch(() => {});
+    let submit = page.getByRole("button", { name: /^\s*(se connecter|sign in|log in|connexion|continuer)\s*$/i }).first();
+    if (!(await submit.count().catch(() => 0))) submit = page.getByRole("button", { name: /connect|sign|login|valider/i }).first();
+    if (await submit.count().catch(() => 0)) await submit.click().catch(() => {});
+    else await pass.press("Enter").catch(() => {});
+    await page.waitForURL((u) => !/\/(login|signin|auth|connexion)/i.test(u.toString()), { timeout: 18000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+    return !/\/(login|signin|auth|connexion)/i.test(page.url());
+  }
+  return false;
+}
+
 export async function runWorkflowTest(
   target: string,
   model: SiteModel,
-  opts: { maxSteps?: number } = {}
+  opts: { maxSteps?: number; creds?: { email: string; password: string } } = {}
 ): Promise<WorkflowResult> {
-  const maxSteps = opts.maxSteps ?? 6;
+  const maxSteps = opts.maxSteps ?? (opts.creds ? 10 : 6);
   const wf = model.primaryWorkflow;
   const result: WorkflowResult = {
     goal: wf.goal,
@@ -96,6 +145,20 @@ export async function runWorkflowTest(
     result.steps.push({ n: result.steps.length + 1, action, target: tgt.slice(0, 60), note });
 
   try {
+    // Write-path mode: log in first with the test account.
+    if (opts.creds) {
+      const ok = await loginFlow(page, target, opts.creds);
+      log("login", "", ok ? "✅ connecté (compte de test)" : "échec de connexion");
+      await shot();
+      if (!ok) {
+        result.status = "blocked";
+        result.why = "Connexion impossible avec le compte de test fourni.";
+        await context.close().catch(() => {});
+        await browser.close().catch(() => {});
+        return result;
+      }
+    }
+
     const entry = (() => {
       try {
         return new URL(wf.entryPath, target).href;
@@ -110,6 +173,8 @@ export async function runWorkflowTest(
     await shot();
 
     const tried = new Map<string, number>();
+    const filled = new Set<string>();
+    const checked = new Set<string>();
     const urlHistory: string[] = [page.url()];
     const isAuthUrl = (u: string) => /\/(login|signup|sign-?in|sign-?up|auth|connexion|inscription|register)/i.test(u);
 
@@ -133,8 +198,11 @@ export async function runWorkflowTest(
         break;
       }
 
-      const inventory = (await page.evaluate(INVENTORY_FN).catch(() => [])) as string[];
-      if (!inventory.length) {
+      const inv = (await page.evaluate(INVENTORY_FN).catch(() => ({ clickables: [], fields: [] }))) as {
+        clickables: string[];
+        fields: { label: string; type: string }[];
+      };
+      if (!inv.clickables.length && !inv.fields.length) {
         result.status = "blocked";
         result.why = "Aucun élément interactif standard détecté (UI custom/canvas ?) — parcours non automatisable en l'état.";
         break;
@@ -142,18 +210,21 @@ export async function runWorkflowTest(
 
       const recent = result.steps.slice(-4).map((s) => `${s.action} ${s.target}`).join(" → ");
       const alreadyTried = Array.from(tried.keys());
+      const writeHint = opts.creds
+        ? `\nMode write-path autorisé : remplis les champs REQUIS avec des données de TEST (URL "https://example.com"), coche les autorisations (cibles ☐), puis CLIQUE le bouton de soumission (ex. "Launch audit"). Ignore les champs optionnels.`
+        : `\nLecture seule : ne remplis/soumets RIEN.`;
       const decision = await aiComplete(
         `Tu es un agent QA qui pilote un navigateur pour accomplir un objectif utilisateur.\n` +
           `OBJECTIF : ${wf.goal}\nSIGNAL DE SUCCÈS attendu : « ${wf.successSignal} »\n` +
           `URL actuelle : ${page.url()}\nActions déjà faites : ${recent || "(aucune)"}\n` +
-          `NE RÉPÈTE PAS ces cibles déjà essayées sans effet : ${JSON.stringify(alreadyTried)}\n` +
-          `Éléments cliquables visibles : ${JSON.stringify(inventory)}\n\n` +
-          `Choisis LA prochaine action qui rapproche du but (une cible NON déjà essayée si possible). Réponds STRICTEMENT en JSON :\n` +
-          `{"action":"click"|"done","target":"texte EXACT d'un élément de la liste","reason":"court"}\n` +
-          `Utilise "done" seulement si le but est déjà atteint ou réellement inatteignable sans compte.`,
-        { json: true, maxTokens: 120 }
+          `Champs DÉJÀ remplis (NE PAS refaire) : ${JSON.stringify([...filled])}\n` +
+          `Cases DÉJÀ cochées (NE PAS refaire) : ${JSON.stringify([...checked])}\n` +
+          `Champs de formulaire (remplissables) : ${JSON.stringify(inv.fields)}\nÉléments cliquables : ${JSON.stringify(inv.clickables)}${writeHint}\n\n` +
+          `Règle : si le champ requis (URL) est rempli ET l'autorisation cochée, l'action suivante DOIT être de cliquer le bouton de soumission. Réponds STRICTEMENT en JSON :\n` +
+          `{"action":"click"|"fill"|"done","target":"libellé EXACT d'un champ/élément","value":"(si fill) valeur","reason":"court"}`,
+        { json: true, maxTokens: 140 }
       );
-      const act = parseAiJson<{ action: string; target: string; reason: string }>(decision, {
+      const act = parseAiJson<{ action: string; target: string; value?: string; reason: string }>(decision, {
         action: "done",
         target: "",
         reason: "no decision",
@@ -164,20 +235,65 @@ export async function runWorkflowTest(
         break;
       }
 
-      // Loop guard: same target chosen repeatedly ⇒ stuck.
-      const count = (tried.get(act.target) || 0) + 1;
-      tried.set(act.target, count);
-      if (count >= 2) {
+      // Loop guard: same action+target chosen repeatedly ⇒ stuck.
+      const key = `${act.action}:${act.target}`;
+      const count = (tried.get(key) || 0) + 1;
+      tried.set(key, count);
+      if (count >= 2 && act.action !== "fill") {
         result.status = "blocked";
-        result.why = `Boucle détectée (action « ${act.target} » répétée) : le parcours « ${wf.goal} » semble nécessiter une saisie/soumission (write-path) non effectuée en lecture seule.`;
+        result.why = `Boucle détectée (« ${act.target} » répété) : le parcours « ${wf.goal} » semble nécessiter une étape non franchissable automatiquement.`;
         log("assert", act.target, "↻ boucle — arrêt");
         await shot();
         break;
       }
 
-      const btn = page.getByRole("button", { name: new RegExp("^\\s*" + act.target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*$", "i") }).first();
-      const link = page.getByRole("link", { name: new RegExp("^\\s*" + act.target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*$", "i") }).first();
       let clicked = false;
+      const cleanTarget = act.target.replace(/^☐\s*/, "");
+      const esc = cleanTarget.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+      // Checkbox toggle (authorization, consent, …)
+      if (act.target.startsWith("☐") || /autoris|authorized|j'accepte|consent|d'accord/i.test(cleanTarget)) {
+        if (checked.has(cleanTarget)) { log("check", cleanTarget, "déjà coché — ignoré"); continue; }
+        const cb = page.getByRole("checkbox", { name: new RegExp(esc.slice(0, 24), "i") }).first();
+        if (await cb.count().catch(() => 0)) {
+          await cb.check({ timeout: 6000 }).catch(() => {});
+          clicked = true;
+        } else {
+          const lbl = page.getByText(new RegExp(esc.slice(0, 24), "i")).first();
+          if (await lbl.count().catch(() => 0)) { await lbl.click({ timeout: 6000 }).catch(() => {}); clicked = true; }
+        }
+        if (clicked) checked.add(cleanTarget);
+        log("check", cleanTarget, clicked ? "✅ coché" : "case introuvable");
+        await page.waitForTimeout(250);
+        urlHistory.push(page.url());
+        if (clicked) continue;
+      }
+
+      if (act.action === "fill") {
+        if (filled.has(act.target)) { log("fill", act.target, "déjà rempli — ignoré"); continue; }
+        const value = (act.value || "https://example.com").slice(0, 120);
+        // find the input by placeholder / aria-label / associated label / name
+        const candidates = [
+          page.getByLabel(new RegExp(esc, "i")).first(),
+          page.getByPlaceholder(new RegExp(esc, "i")).first(),
+          page.locator(`input[name*="${act.target.split(" ")[0]}" i], textarea[name*="${act.target.split(" ")[0]}" i]`).first(),
+        ];
+        for (const c of candidates) {
+          if (await c.count().catch(() => 0)) {
+            await c.fill(value, { timeout: 6000 }).catch(() => {});
+            clicked = true;
+            break;
+          }
+        }
+        if (clicked) filled.add(act.target);
+        log("fill", `${act.target}="${value}"`, act.reason || (clicked ? "" : "champ introuvable"));
+        await page.waitForTimeout(300);
+        urlHistory.push(page.url());
+        continue;
+      }
+
+      const btn = page.getByRole("button", { name: new RegExp("^\\s*" + esc + "\\s*$", "i") }).first();
+      const link = page.getByRole("link", { name: new RegExp("^\\s*" + esc + "\\s*$", "i") }).first();
       if (await btn.count().catch(() => 0)) { await btn.click({ timeout: 6000 }).catch(() => {}); clicked = true; }
       else if (await link.count().catch(() => 0)) { await link.click({ timeout: 6000 }).catch(() => {}); clicked = true; }
       else {
