@@ -5,8 +5,9 @@ import { Sparkles } from "lucide-react";
 import { MatrixRain } from "@/components/matrix-rain";
 import { AuditTerminal } from "./audit-terminal";
 import { TryAudit } from "./try-audit";
+import type { Dict } from "@/lib/i18n";
 
-export function Hero() {
+export function Hero({ t }: { t: Dict }) {
   return (
     <section className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-grid" />
@@ -21,7 +22,7 @@ export function Hero() {
             className="mb-5 inline-flex items-center gap-2 rounded-full border border-matrix-dim/50 bg-matrix/5 px-3 py-1 text-xs text-matrix-bright"
           >
             <Sparkles className="size-3.5" />
-            Autonomous QA for vibe-coded apps
+            {t.hero.badge}
           </motion.div>
 
           <motion.h1
@@ -30,8 +31,8 @@ export function Hero() {
             transition={{ duration: 0.6, delay: 0.05 }}
             className="text-balance text-4xl font-bold leading-[1.08] tracking-tight text-fg sm:text-5xl lg:text-6xl"
           >
-            Your AI QA agent after every{" "}
-            <span className="text-matrix text-glow">deploy</span>
+            {t.hero.h1}
+            <span className="text-matrix text-glow">{t.hero.h1accent}</span>
           </motion.h1>
 
           <motion.p
@@ -40,8 +41,7 @@ export function Hero() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="mt-4 max-w-xl text-balance text-lg font-medium text-fg"
           >
-            In plain terms: an agent tests your live app, finds what&apos;s broken, and
-            hands you the fix — ready to paste into your editor.
+            {t.hero.plain}
           </motion.p>
 
           <motion.p
@@ -50,9 +50,7 @@ export function Hero() {
             transition={{ duration: 0.6, delay: 0.16 }}
             className="mt-3 max-w-xl text-sm text-fg-muted"
           >
-            Paste a URL — agents explore the app, click every button, test forms and
-            real user flows, then write a fix prompt ready for Claude Code, Cursor or
-            any editor. Built for vibe-coded apps; works for any site.
+            {t.hero.support}
           </motion.p>
 
           <motion.div
@@ -60,10 +58,10 @@ export function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.18 }}
           >
-            <TryAudit />
+            <TryAudit t={t} />
             <div className="mt-3">
               <a href="#sample" className="text-sm text-fg-muted underline-offset-4 hover:text-fg hover:underline">
-                ou regarde un exemple de rapport →
+                {t.hero.orSample}
               </a>
             </div>
           </motion.div>
@@ -74,7 +72,7 @@ export function Hero() {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-fg-faint"
           >
-            <span>Works with Cursor · Claude Code · Lovable · Bolt · v0 · Antigravity</span>
+            <span>{t.hero.works}</span>
           </motion.div>
         </div>
 

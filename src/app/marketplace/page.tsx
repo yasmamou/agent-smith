@@ -8,6 +8,7 @@ import { CustomAgentCard } from "@/components/marketplace/custom-agent-card";
 import { AGENT_PROFILES } from "@/lib/agents/profiles";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/client";
+import { detectLocale, getDictionary } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: "Agent Marketplace — Agent Smith",
@@ -18,13 +19,15 @@ export const dynamic = "force-dynamic";
 
 export default async function MarketplacePage() {
   const session = await getSession();
+  const locale = await detectLocale();
+  const t = getDictionary(locale);
   const customAgents = session
     ? await prisma.customAgent.findMany({ where: { userId: session.userId }, orderBy: { createdAt: "desc" } })
     : [];
 
   return (
     <main>
-      <Navbar />
+      <Navbar t={t} locale={locale} />
       <section className="mx-auto max-w-6xl px-5 py-16">
         {session && (
           <div className="mb-12">
@@ -83,7 +86,7 @@ export default async function MarketplacePage() {
           Marketplace is in preview — premium agents are billed per deep audit. Core is always free.
         </p>
       </section>
-      <CtaFooter />
+      <CtaFooter t={t} />
     </main>
   );
 }

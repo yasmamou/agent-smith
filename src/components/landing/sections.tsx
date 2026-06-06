@@ -14,6 +14,7 @@ import {
 import { Reveal } from "@/components/reveal";
 import { Card } from "@/components/ui/card";
 import { AGENT_PROFILES } from "@/lib/agents/profiles";
+import type { Dict } from "@/lib/i18n";
 
 function SectionHeading({ eyebrow, title, sub }: { eyebrow: string; title: string; sub?: string }) {
   return (
@@ -25,81 +26,57 @@ function SectionHeading({ eyebrow, title, sub }: { eyebrow: string; title: strin
   );
 }
 
+const STEP_ICONS = [GitBranch, Zap, FileText];
+
 /* ---------------- How it works ---------------- */
-export function HowItWorks() {
-  const steps = [
-    {
-      icon: GitBranch,
-      title: "Paste your URL",
-      body: "Drop the link to your deployed app. Add optional login, IP/API-key whitelist notes and special instructions.",
-    },
-    {
-      icon: Zap,
-      title: "Agents go to work",
-      body: "A swarm of QA agents explores pages, clicks buttons, tests forms and records every error, slow load and weak spot.",
-    },
-    {
-      icon: FileText,
-      title: "Get an actionable report",
-      body: "Scores, prioritised findings, screenshots, UX suggestions — and a fix prompt ready to paste into Claude Code or Cursor.",
-    },
-  ];
+export function HowItWorks({ t }: { t: Dict }) {
   return (
     <section id="how" className="mx-auto max-w-6xl px-5 py-20">
-      <SectionHeading
-        eyebrow="How it works"
-        title="From URL to fix prompt in one pass"
-        sub="No setup, no scripts. Agent Smith treats every deploy like a release candidate."
-      />
+      <SectionHeading eyebrow={t.how.eyebrow} title={t.how.title} sub={t.how.sub} />
       <div className="grid gap-5 md:grid-cols-3">
-        {steps.map((s, i) => (
-          <Reveal key={s.title} delay={i * 0.08}>
-            <Card className="h-full">
-              <div className="mb-4 flex items-center gap-3">
-                <span className="grid size-10 place-items-center rounded-lg border border-matrix-dim/50 bg-matrix/5 text-matrix">
-                  <s.icon className="size-5" />
-                </span>
-                <span className="font-mono text-xs text-fg-faint">0{i + 1}</span>
-              </div>
-              <h3 className="mb-2 text-lg font-semibold text-fg">{s.title}</h3>
-              <p className="text-sm text-fg-muted">{s.body}</p>
-            </Card>
-          </Reveal>
-        ))}
+        {t.how.steps.map((s, i) => {
+          const Icon = STEP_ICONS[i] ?? GitBranch;
+          return (
+            <Reveal key={s.title} delay={i * 0.08}>
+              <Card className="h-full">
+                <div className="mb-4 flex items-center gap-3">
+                  <span className="grid size-10 place-items-center rounded-lg border border-matrix-dim/50 bg-matrix/5 text-matrix">
+                    <Icon className="size-5" />
+                  </span>
+                  <span className="font-mono text-xs text-fg-faint">0{i + 1}</span>
+                </div>
+                <h3 className="mb-2 text-lg font-semibold text-fg">{s.title}</h3>
+                <p className="text-sm text-fg-muted">{s.body}</p>
+              </Card>
+            </Reveal>
+          );
+        })}
       </div>
     </section>
   );
 }
 
+const AGENT_ICONS = [Compass, MousePointerClick, Eye, Palette, ShieldCheck, Gauge, Wand2];
+
 /* ---------------- Features (the 7 agents) ---------------- */
-export function Features() {
-  const agents = [
-    { icon: Compass, name: "ExplorerAgent", body: "Discovers pages, links, buttons and forms — maps your whole surface." },
-    { icon: MousePointerClick, name: "FunctionalQAAgent", body: "Tests buttons & forms, catches console + network errors and bad routes." },
-    { icon: Eye, name: "UXAgent", body: "Scores clarity, friction, onboarding, empty states and visual hierarchy." },
-    { icon: Palette, name: "UIAgent", body: "Checks responsive, contrast, alt text and design consistency." },
-    { icon: ShieldCheck, name: "SecurityLightAgent", body: "Passive review of headers, cookies, CSP & HTTPS. No aggressive scanning." },
-    { icon: Gauge, name: "PerformanceAgent", body: "Measures load times, flags slow pages and failing network requests." },
-    { icon: Wand2, name: "PromptFixAgent", body: "Turns every finding into one ready-to-paste fix prompt for your AI IDE." },
-  ];
+export function Features({ t }: { t: Dict }) {
   return (
     <section id="features" className="border-y border-border/60 bg-bg-elevated/30 py-20">
       <div className="mx-auto max-w-6xl px-5">
-        <SectionHeading
-          eyebrow="The agent swarm"
-          title="Seven specialised agents, one report"
-          sub="Each agent owns a dimension of quality. Together they cover what a human QA pass would — automatically."
-        />
+        <SectionHeading eyebrow={t.features.eyebrow} title={t.features.title} sub={t.features.sub} />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {agents.map((a, i) => (
-            <Reveal key={a.name} delay={(i % 3) * 0.06}>
-              <Card className="h-full transition-colors hover:border-matrix-dim">
-                <a.icon className="mb-3 size-6 text-matrix" />
-                <h3 className="mb-1.5 font-mono text-sm font-semibold text-fg">{a.name}</h3>
-                <p className="text-sm text-fg-muted">{a.body}</p>
-              </Card>
-            </Reveal>
-          ))}
+          {t.features.agents.map((a, i) => {
+            const Icon = AGENT_ICONS[i] ?? Compass;
+            return (
+              <Reveal key={a.name} delay={(i % 3) * 0.06}>
+                <Card className="h-full transition-colors hover:border-matrix-dim">
+                  <Icon className="mb-3 size-6 text-matrix" />
+                  <h3 className="mb-1.5 font-mono text-sm font-semibold text-fg">{a.name}</h3>
+                  <p className="text-sm text-fg-muted">{a.body}</p>
+                </Card>
+              </Reveal>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -107,14 +84,10 @@ export function Features() {
 }
 
 /* ---------------- Marketplace teaser ---------------- */
-export function AgentsTeaser() {
+export function AgentsTeaser({ t }: { t: Dict }) {
   return (
     <section id="agents" className="mx-auto max-w-6xl px-5 py-20">
-      <SectionHeading
-        eyebrow="Agent marketplace"
-        title="Hire specialised agents on demand"
-        sub="Beyond the core, plug in named agents tuned for UX, security, mobile or conversion."
-      />
+      <SectionHeading eyebrow={t.agentsTeaser.eyebrow} title={t.agentsTeaser.title} sub={t.agentsTeaser.sub} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {AGENT_PROFILES.map((a, i) => (
           <Reveal key={a.slug} delay={(i % 3) * 0.06}>
@@ -137,7 +110,7 @@ export function AgentsTeaser() {
       </div>
       <div className="mt-8 text-center">
         <Link href="/marketplace" className="text-sm font-medium text-matrix hover:text-matrix-bright">
-          Browse the full marketplace →
+          {t.agentsTeaser.browse}
         </Link>
       </div>
     </section>
