@@ -9,7 +9,7 @@ import type { AuditReport, AuditConfig, AuditStatus, Finding, AuditScores } from
 export async function createAudit(
   userId: string,
   config: AuditConfig,
-  extra?: { type?: string; persona?: string; customAgentSlug?: string }
+  extra?: { type?: string; persona?: string; customAgentSlug?: string; allowWrites?: boolean }
 ) {
   const type = extra?.type || "technical";
   const hasCreds = !!(config.login && config.password);
@@ -50,6 +50,7 @@ export async function createAudit(
       instructions: config.instructions || null,
       whitelistNotes: config.whitelistNotes || null,
       hasCredentials: !!(config.login || config.password || config.apiKey),
+      allowWrites: !!extra?.allowWrites,
       credEnc,
       agentConfig,
       status: "pending",

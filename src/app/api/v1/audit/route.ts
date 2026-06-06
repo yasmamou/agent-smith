@@ -44,6 +44,7 @@ export async function POST(req: Request) {
     type: data.type,
     persona: data.persona,
     customAgentSlug: data.customAgentSlug,
+    allowWrites: data.allowWrites,
   });
   const result = await executeAudit(audit.id);
 

@@ -57,6 +57,7 @@ model Audit {
   instructions   String?
   whitelistNotes String?
   hasCredentials Boolean  @default(false)
+  allowWrites    Boolean  @default(false) // interactive workflow test (fill/submit forms)
   engine         String?  // playwright | mock
 
   // persona/authenticated journey result (JSON JourneyResult)

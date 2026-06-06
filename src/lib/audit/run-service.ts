@@ -66,13 +66,14 @@ export async function executeAudit(auditId: string): Promise<RunResult> {
     };
 
     // Custom marketplace agent: focus categories + active checks + AI angle.
-    let opts = {};
+    let opts: Record<string, unknown> = { allowWrites: audit.allowWrites };
     if (audit.type === "custom" && audit.agentConfig) {
       try {
         const cfg = JSON.parse(audit.agentConfig) as { checks?: string[]; aiInstructions?: string };
         const checks = cfg.checks ?? [];
         const { categoriesForChecks, activeChecks } = await import("@/lib/agents/catalog");
         opts = {
+          allowWrites: audit.allowWrites,
           activeCheckIds: activeChecks(checks).map((c) => c.id),
           categoryFilter: categoriesForChecks(checks),
           aiInstructions: cfg.aiInstructions || undefined,

@@ -20,6 +20,7 @@ export const createAuditSchema = z.object({
   type: z.enum(["technical", "persona", "authenticated", "custom"]).default("technical"),
   persona: z.string().max(40).optional(),
   customAgentSlug: z.string().max(60).optional(),
+  allowWrites: z.boolean().optional(),
   mode: z.enum(["quick", "standard", "deep"]).default("standard"),
   agentsCount: z.coerce.number().int().min(1).max(10).default(5),
   durationMinutes: z.coerce.number().int().min(1).max(60).default(15),

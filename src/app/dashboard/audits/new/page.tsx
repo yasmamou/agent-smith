@@ -31,6 +31,7 @@ export default function NewAuditPage() {
   const [agentsCount, setAgentsCount] = useState(5);
   const [durationMinutes, setDurationMinutes] = useState(15);
   const [authorized, setAuthorized] = useState(false);
+  const [allowWrites, setAllowWrites] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +71,7 @@ export default function NewAuditPage() {
       type: agentSlug ? "custom" : auditType,
       customAgentSlug: agentSlug || undefined,
       persona: !agentSlug && auditType !== "technical" ? persona : undefined,
+      allowWrites,
       mode,
       agentsCount,
       durationMinutes,
@@ -259,6 +261,26 @@ export default function NewAuditPage() {
             placeholder="e.g. focus on the signup → checkout funnel; the dashboard needs login."
           />
         </div>
+
+        {/* Interactive workflow (write-path) */}
+        {auditType !== "persona" && (
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-bg-elevated/40 p-4">
+            <input
+              type="checkbox"
+              checked={allowWrites}
+              onChange={(e) => setAllowWrites(e.target.checked)}
+              className="mt-0.5 size-4 accent-[var(--color-matrix)]"
+            />
+            <span className="text-sm text-fg-muted">
+              <span className="inline-flex items-center gap-1.5 font-medium text-fg">
+                <Footprints className="size-4 text-matrix" /> Tester le workflow en mode interactif
+              </span>
+              <br />
+              L&apos;agent IA remplit les formulaires et soumet (données de test) pour exécuter le vrai parcours
+              métier — pas seulement naviguer. À réserver à <strong>tes propres sites</strong> (données de test créées).
+            </span>
+          </label>
+        )}
 
         {/* Advanced */}
         <div className="rounded-xl border border-border bg-bg-elevated/40">
