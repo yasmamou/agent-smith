@@ -51,8 +51,13 @@ export async function executeAudit(auditId: string): Promise<RunResult> {
         instructions: audit.instructions ?? undefined,
       };
       const report = await runAudit(config, { creds });
-      await persistReport(auditId, report);
       await prisma.audit.update({ where: { id: auditId }, data: { credEnc: null } }).catch(() => {});
+      // An authenticated audit REQUIRES a real browser — never serve a mock.
+      if (report.engine === "mock") {
+        await setAuditStatus(auditId, "failed", "Navigateur réel indisponible (Browserbase) — l'audit authentifié ne peut pas se faire en mode simulé.");
+        return { ok: false, status: "failed", type: audit.type, error: "Real browser unavailable — authenticated audit needs a live browser." };
+      }
+      await persistReport(auditId, report);
       return { ok: true, status: "completed", type: audit.type, scores: report.scores, engine: report.engine };
     }
 

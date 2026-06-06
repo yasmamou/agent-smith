@@ -158,7 +158,13 @@ export async function runAudit(config: AuditConfig, opts: RunAuditOptions = {}):
   ]
     .filter(Boolean)
     .join(" ");
-  const summary = await generateSummary(findings, scores, config, focus || undefined);
+  let summary = await generateSummary(findings, scores, config, focus || undefined);
+  // Honesty: never present simulated results as real.
+  if (crawlResult.engine === "mock") {
+    summary =
+      "⚠️ AUDIT SIMULÉ — le navigateur réel était indisponible (quota/échec), ces résultats sont générés de façon déterministe et NE reflètent PAS le site réel. " +
+      summary;
+  }
   const date = formatDate(new Date());
 
   const reportMarkdown = buildMarkdown({

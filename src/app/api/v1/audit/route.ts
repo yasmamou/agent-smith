@@ -60,6 +60,7 @@ export async function POST(req: Request) {
       status: result.status,
       type: data.type,
       engine: full?.engine ?? null,
+      simulated: full?.engine === "mock",
       summary: full?.summary ?? null,
       scores: parseScores(full?.scores),
       findings: (full?.findings ?? []).map(findingFromRow),

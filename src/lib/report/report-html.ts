@@ -142,9 +142,14 @@ export function buildReportHtml(d: ReportData): string {
     }
   }
 
+  const mockWarn =
+    d.engine === "mock"
+      ? `<div style="background:#fff3f0;border:1px solid #c2410c55;border-left:4px solid #c2410c;border-radius:8px;padding:9px 12px;margin:8px 0;color:#9a3412;font-size:10.5px"><b>⚠️ Audit simulé</b> — le navigateur réel était indisponible ; ces résultats sont déterministes et ne reflètent pas le site réel.</div>`
+      : "";
   return `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style></head><body>
     ${banner}
-    <p class="meta" style="font-size:10px">Cible : ${esc(d.targetUrl)} · Date : ${esc(d.date)}</p>
+    <p class="meta" style="font-size:10px">Cible : ${esc(d.targetUrl)} · Date : ${esc(d.date)} · Moteur : ${esc(d.engine || "—")}</p>
+    ${mockWarn}
     ${body}
     <div class="foot">Généré par Agent Smith — audit passif & non-destructif. Tester uniquement des sites autorisés.</div>
   </body></html>`;
