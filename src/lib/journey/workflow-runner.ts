@@ -22,10 +22,16 @@ const INVENTORY_FN = `(() => {
     if (clickables.length >= 22) break;
   }
   const fields = [];
+  let menuN = 0;
   for (const i of Array.from(document.querySelectorAll('input, textarea, select'))) {
     if (['hidden','submit','button','checkbox','radio'].includes(i.type) || !vis(i)) continue;
     let label = i.getAttribute('aria-label') || i.getAttribute('placeholder') || '';
     if (!label && i.id) { const l = document.querySelector('label[for="' + CSS.escape(i.id) + '"]'); if (l) label = (l.textContent||'').trim(); }
+    if (!label) { const pl = i.closest('label'); if (pl) label = (pl.textContent||'').trim(); }
+    if (!label && i.tagName === 'SELECT') {
+      const opt = i.querySelector('option'); const first = opt ? (opt.textContent||'').trim() : '';
+      label = first ? ('menu: ' + first) : ('menu ' + (++menuN));
+    }
     if (!label) label = i.getAttribute('name') || i.type || 'champ';
     fields.push({ label: label.trim().slice(0,40), type: i.type || i.tagName.toLowerCase() });
     if (fields.length >= 12) break;
@@ -110,9 +116,10 @@ async function loginFlow(
 export async function runWorkflowTest(
   target: string,
   model: SiteModel,
-  opts: { maxSteps?: number; creds?: { email: string; password: string } } = {}
+  opts: { maxSteps?: number; creds?: { email: string; password: string }; allowWrites?: boolean } = {}
 ): Promise<WorkflowResult> {
-  const maxSteps = opts.maxSteps ?? (opts.creds ? 10 : 6);
+  const writeMode = !!(opts.creds || opts.allowWrites);
+  const maxSteps = opts.maxSteps ?? (writeMode ? 10 : 6);
   const wf = model.primaryWorkflow;
   const result: WorkflowResult = {
     goal: wf.goal,
@@ -197,6 +204,8 @@ export async function runWorkflowTest(
     const filled = new Set<string>();
     const checked = new Set<string>();
     const urlHistory: string[] = [page.url()];
+    let stall = 0;
+    let lastProgress = "";
     const startPath = (() => { try { return new URL(page.url()).pathname; } catch { return "/"; } })();
     const isAuthUrl = (u: string) => /\/(login|signup|sign-?in|sign-?up|auth|connexion|inscription|register)/i.test(u);
     // generic "created/submitted" cue: navigated to a fresh sub-resource (id segment)
@@ -206,7 +215,7 @@ export async function runWorkflowTest(
     };
     const trySubmit = async () => {
       const submit = page
-        .getByRole("button", { name: /launch|lancer|^run\b|d[ée]marrer|cr[ée]er|valider|envoyer|soumettre|confirmer|terminer|^go$|submit/i })
+        .getByRole("button", { name: /launch|lancer|^run\b|d[ée]marrer|cr[ée]er|valider|envoyer|soumettre|confirmer|terminer|simuler|jouer|g[ée]n[ée]rer|calculer|^go$|submit/i })
         .first();
       if (await submit.count().catch(() => 0)) {
         const before = page.url();
@@ -228,6 +237,18 @@ export async function runWorkflowTest(
           : `But atteint : signal « ${wf.successSignal} » détecté sur ${new URL(page.url()).pathname}.`;
         await shot();
         log("assert", wf.successSignal, "✅ succès vérifié");
+        break;
+      }
+
+      // Stall guard: no progress (url/filled/checked unchanged) ⇒ stop cleanly.
+      const progressKey = `${page.url()}|${filled.size}|${checked.size}`;
+      if (progressKey === lastProgress) stall++;
+      else { stall = 0; lastProgress = progressKey; }
+      if (stall >= 3) {
+        result.status = "blocked";
+        result.why = `Parcours non franchissable automatiquement : aucune progression après plusieurs tentatives. UI personnalisée probable (menus/sélecteurs sans libellé, widget non standard). But « ${wf.goal} » non atteint.`;
+        log("assert", "stall", "⛔ aucune progression — arrêt");
+        await shot();
         break;
       }
 
@@ -254,9 +275,9 @@ export async function runWorkflowTest(
 
       const recent = result.steps.slice(-4).map((s) => `${s.action} ${s.target}`).join(" → ");
       const alreadyTried = Array.from(tried.keys());
-      const writeHint = opts.creds
-        ? `\nMode write-path autorisé : remplis les champs REQUIS avec des données de TEST (URL "https://example.com"), coche les autorisations (cibles ☐), puis CLIQUE le bouton de soumission (ex. "Launch audit"). Ignore les champs optionnels.`
-        : `\nLecture seule : ne remplis/soumets RIEN.`;
+      const writeHint = writeMode
+        ? `\nMode write autorisé : remplis les champs REQUIS avec des données de TEST, choisis une valeur pour les menus (type "select-one"), coche les autorisations (cibles ☐), puis CLIQUE le bouton d'action (ex. "Simuler", "Launch", "Lancer"). Ignore les champs optionnels.`
+        : `\nLecture seule : ne remplis/soumets RIEN, clique uniquement pour naviguer.`;
       const decision = await aiComplete(
         `Tu es un agent QA qui pilote un navigateur pour accomplir un objectif utilisateur.\n` +
           `OBJECTIF : ${wf.goal}\nSIGNAL DE SUCCÈS attendu : « ${wf.successSignal} »\n` +
@@ -318,6 +339,28 @@ export async function runWorkflowTest(
       if (act.action === "fill") {
         if (filled.has(act.target)) { log("fill", act.target, "déjà rempli — tentative de soumission"); await trySubmit(); continue; }
         const value = (act.value || "https://example.com").slice(0, 120);
+
+        // <select> menus need selectOption, not fill.
+        const selById = page.getByLabel(new RegExp(esc, "i")).first();
+        const selGeneric = page.locator("select").first();
+        for (const sel of [selById, selGeneric]) {
+          if (!(await sel.count().catch(() => 0))) continue;
+          const tag = await sel.evaluate((e) => e.tagName).catch(() => "");
+          if (tag !== "SELECT") continue;
+          let ok = false;
+          try { await sel.selectOption({ label: value }); ok = true; } catch { /* try next */ }
+          if (!ok) { try { await sel.selectOption({ index: 1 }); ok = true; } catch { /* */ } }
+          if (ok) {
+            filled.add(act.target);
+            clicked = true;
+            log("select", `${act.target}→${value}`, act.reason || "");
+            await page.waitForTimeout(300);
+            urlHistory.push(page.url());
+            break;
+          }
+        }
+        if (clicked) continue;
+
         // find the input by placeholder / aria-label / associated label / name
         const candidates = [
           page.getByLabel(new RegExp(esc, "i")).first(),
