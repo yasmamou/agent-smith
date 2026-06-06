@@ -29,7 +29,7 @@ export function Hero({ t }: { t: Dict }) {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.05 }}
-            className="text-balance text-4xl font-bold leading-[1.08] tracking-tight text-fg sm:text-5xl lg:text-6xl"
+            className="text-balance text-4xl font-bold leading-[1.04] tracking-[-0.02em] text-fg sm:text-5xl lg:text-6xl"
           >
             {t.hero.h1}
             <span className="text-matrix text-glow">{t.hero.h1accent}</span>

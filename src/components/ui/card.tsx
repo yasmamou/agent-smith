@@ -9,7 +9,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-2xl p-5",
+        "rounded-2xl p-5 transition-all duration-150 ease-out hover:-translate-y-0.5",
         bright ? "glass-bright" : "glass",
         className
       )}

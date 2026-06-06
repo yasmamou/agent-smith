@@ -10,9 +10,9 @@
   --color-border: #18241d;
   --color-border-bright: #1f3a2c;
 
-  --color-fg: #e6f1ea;
-  --color-fg-muted: #a8c1b4;
-  --color-fg-faint: #849c8f;
+  --color-fg: #eef5f1;
+  --color-fg-muted: #c2d6cb; /* AA on dark — was #a8c1b4 (Oracle: floor secondary text) */
+  --color-fg-faint: #9fb6aa; /* AA on dark — was #849c8f */
 
   --color-matrix: #18e26a;
   --color-matrix-bright: #4dff95;
