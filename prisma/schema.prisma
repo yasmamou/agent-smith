@@ -19,11 +19,31 @@ model User {
   plan         String   @default("free") // free | starter | pro | team
   apiKeyHash   String?  @unique // sha256 of the API key (never store the key in clear)
   apiKeyPrefix String?  // first chars, for display only
+  credits      Int      @default(15) // audit credits; granted on signup, spent per real audit
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   audits       Audit[]
   customAgents CustomAgent[]
+  creditTxns   CreditTxn[]
+}
+
+// Append-only ledger of every credit movement (grant / spend / refund / purchase).
+// The User.credits column is the running balance; each row records the delta and
+// the resulting balance for a full audit trail.
+model CreditTxn {
+  id        String   @id @default(cuid())
+  userId    String
+  delta     Int      // +grant/+purchase/+refund, -spend
+  balance   Int      // running balance AFTER this txn
+  reason    String   // signup | purchase | audit:<type> | refund:<reason> | grant
+  auditId   String?  // linked audit when reason starts with audit:/refund:
+  meta      String?  // optional JSON (e.g. Stripe session id, pack id)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model CustomAgent {

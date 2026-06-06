@@ -3,6 +3,7 @@ import { setAuditStatus, persistReport, persistJourney } from "@/lib/db/audits";
 import { runAudit } from "./engine";
 import { runPersonaJourney } from "@/lib/journey/runner";
 import { getPersona, PERSONAS } from "@/lib/journey/personas";
+import { chargeCredits, refundCredits, costForAudit, InsufficientCreditsError } from "@/lib/billing/credits";
 import type { AuditConfig, AuditMode } from "@/types";
 
 export interface RunResult {
@@ -25,6 +26,20 @@ export async function executeAudit(auditId: string): Promise<RunResult> {
   if (!audit) return { ok: false, status: "failed", type: "unknown", error: "not found" };
 
   await setAuditStatus(auditId, "running");
+
+  // Charge credits upfront; refund on failure or on a simulated (mock) result so
+  // we never bill for an audit that didn't really run.
+  const cost = costForAudit(audit.type);
+  try {
+    await chargeCredits(audit.userId, cost, `audit:${audit.type}`, auditId);
+  } catch (e) {
+    if (e instanceof InsufficientCreditsError) {
+      await setAuditStatus(auditId, "failed", e.message);
+      return { ok: false, status: "failed", type: audit.type, error: e.message };
+    }
+    throw e;
+  }
+  const refund = (reason: string) => refundCredits(audit.userId, cost, reason, auditId).catch(() => {});
 
   try {
     // Persona journey (public funnel UX, keyword-driven personas).
@@ -54,6 +69,7 @@ export async function executeAudit(auditId: string): Promise<RunResult> {
       await prisma.audit.update({ where: { id: auditId }, data: { credEnc: null } }).catch(() => {});
       // An authenticated audit REQUIRES a real browser — never serve a mock.
       if (report.engine === "mock") {
+        await refund("refund:mock");
         await setAuditStatus(auditId, "failed", "Navigateur réel indisponible (Browserbase) — l'audit authentifié ne peut pas se faire en mode simulé.");
         return { ok: false, status: "failed", type: audit.type, error: "Real browser unavailable — authenticated audit needs a live browser." };
       }
@@ -89,10 +105,13 @@ export async function executeAudit(auditId: string): Promise<RunResult> {
     }
 
     const report = await runAudit(config, opts);
+    // A simulated (mock) result isn't a real audit — give the credit back.
+    if (report.engine === "mock") await refund("refund:mock");
     await persistReport(auditId, report);
     return { ok: true, status: "completed", type: audit.type, scores: report.scores, engine: report.engine };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Audit failed";
+    await refund("refund:error");
     await setAuditStatus(auditId, "failed", message);
     return { ok: false, status: "failed", type: audit.type, error: message };
   }

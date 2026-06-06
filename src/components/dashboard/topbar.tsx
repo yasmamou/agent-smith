@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Plus, Store, LogOut, KeyRound } from "lucide-react";
+import { LayoutDashboard, Plus, Store, LogOut, KeyRound, Coins } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -12,11 +13,20 @@ const LINKS = [
   { href: "/dashboard/audits/new", label: "New audit", icon: Plus, exact: false },
   { href: "/marketplace", label: "Marketplace", icon: Store, exact: false },
   { href: "/dashboard/api", label: "API", icon: KeyRound, exact: false },
+  { href: "/dashboard/billing", label: "Crédits", icon: Coins, exact: false },
 ];
 
 export function Topbar({ email }: { email: string }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [balance, setBalance] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/billing")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d && typeof d.balance === "number") setBalance(d.balance); })
+      .catch(() => {});
+  }, [pathname]);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -49,6 +59,15 @@ export function Topbar({ email }: { email: string }) {
           </nav>
         </div>
         <div className="flex items-center gap-3">
+          {balance !== null && (
+            <Link
+              href="/dashboard/billing"
+              title="Crédits restants"
+              className="inline-flex items-center gap-1.5 rounded-full border border-matrix-dim/50 bg-matrix/5 px-2.5 py-1 text-xs font-medium text-matrix transition-colors hover:bg-matrix/10"
+            >
+              <Coins className="size-3.5" /> {balance}
+            </Link>
+          )}
           <span className="hidden text-sm text-fg-faint md:inline">{email}</span>
           <Button variant="ghost" size="icon" onClick={logout} title="Sign out">
             <LogOut className="size-4" />

@@ -40,6 +40,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Rate limit" }, { status: 429 });
   }
 
+  // Credit pre-flight — fail fast before creating the audit if the balance is too low.
+  const { hasCredits, costForAudit } = await import("@/lib/billing/credits");
+  const auditCost = costForAudit(data.type);
+  if (!(await hasCredits(session.userId, auditCost))) {
+    return NextResponse.json(
+      { error: `Crédits insuffisants — ${auditCost} requis. Rechargez sur /dashboard/billing.`, code: "insufficient_credits" },
+      { status: 402 }
+    );
+  }
+
   // Credentials are accepted but NEVER persisted in clear (see README §security).
   const config: AuditConfig = {
     targetUrl: data.targetUrl,

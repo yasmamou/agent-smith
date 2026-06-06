@@ -25,6 +25,12 @@ export async function POST(req: Request) {
     data: { email, name: name || null, passwordHash },
   });
 
+  // Record the welcome credits (User.credits default already set the balance) so
+  // the bonus shows in the billing ledger.
+  await prisma.creditTxn.create({
+    data: { userId: user.id, delta: user.credits, balance: user.credits, reason: "signup" },
+  }).catch(() => {});
+
   await createSession({ userId: user.id, email: user.email });
   return NextResponse.json({ ok: true, user: { id: user.id, email: user.email } });
 }

@@ -44,6 +44,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Rate limit" }, { status: 429 });
   }
 
+  // Credit pre-flight (the actual charge happens in executeAudit, refunded on
+  // failure / simulated runs).
+  const { hasCredits, costForAudit } = await import("@/lib/billing/credits");
+  const cost = costForAudit(data.type);
+  if (!(await hasCredits(user.userId, cost))) {
+    return NextResponse.json(
+      { error: `Crédits insuffisants — ${cost} requis. Rechargez sur /dashboard/billing.`, code: "insufficient_credits" },
+      { status: 402 }
+    );
+  }
+
   const config: AuditConfig = {
     targetUrl: data.targetUrl,
     mode: data.mode,
