@@ -22,6 +22,7 @@ export const createAuditSchema = z.object({
   customAgentSlug: z.string().max(60).optional(),
   presetSlug: z.string().max(60).optional(),
   allowWrites: z.boolean().optional(),
+  async: z.boolean().optional(),
   mode: z.enum(["quick", "standard", "deep"]).default("standard"),
   agentsCount: z.coerce.number().int().min(1).max(10).default(5),
   durationMinutes: z.coerce.number().int().min(1).max(60).default(15),

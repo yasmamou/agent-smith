@@ -4,6 +4,20 @@
     "src/app/api/audits/[id]/run/route.ts": {
       "memory": 2048,
       "maxDuration": 300
+    },
+    "src/app/api/queue/process/route.ts": {
+      "memory": 2048,
+      "maxDuration": 300
+    },
+    "src/app/api/v1/audit/route.ts": {
+      "memory": 2048,
+      "maxDuration": 300
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/queue/process",
+      "schedule": "0 3 * * *"
+    }
+  ]
 }

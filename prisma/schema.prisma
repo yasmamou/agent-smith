@@ -145,6 +145,18 @@ model AuditScreenshot {
   @@index([auditId])
 }
 
+// Fixed-row semaphore for the remote browser (Browserbase free tier ≈ 1
+// concurrent session). N rows = BROWSER_CONCURRENCY slots; a session atomically
+// claims a free/expired row before connecting and releases it on close. This
+// serializes browser usage across serverless invocations so audits queue instead
+// of colliding and falling back to mock.
+model BrowserSlot {
+  id        String    @id // "slot-0", "slot-1", …
+  holder    String?   // label of the current holder (audit id / purpose)
+  heldUntil DateTime? // lease expiry; null or past = free
+  updatedAt DateTime  @updatedAt
+}
+
 model AgentProfile {
   id          String  @id @default(cuid())
   slug        String  @unique

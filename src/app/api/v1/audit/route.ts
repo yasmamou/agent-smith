@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import { resolveUser } from "@/lib/auth/resolve";
 import { createAudit, getAuditWithRelations, parseScores, parseJson, findingFromRow } from "@/lib/db/audits";
 import { executeAudit } from "@/lib/audit/run-service";
@@ -73,10 +74,35 @@ export async function POST(req: Request) {
     presetSlug: data.presetSlug,
     allowWrites: data.allowWrites,
   });
+
+  const base = process.env.NEXT_PUBLIC_BASE_URL || "https://agent-smith-iota.vercel.app";
+
+  // Async mode: queue + run after the response (Next after()). The cron drainer
+  // (/api/queue/process) is a safety net. Caller polls GET /api/audits/:id.
+  if (data.async) {
+    const { prisma } = await import("@/lib/db/client");
+    await prisma.audit.update({ where: { id: audit.id }, data: { status: "queued" } });
+    after(async () => {
+      const { runQueued } = await import("@/lib/audit/queue");
+      await runQueued(audit.id).catch(() => {});
+    });
+    return NextResponse.json(
+      {
+        ok: true,
+        id: audit.id,
+        status: "queued",
+        async: true,
+        url: `${base}/dashboard/audits/${audit.id}`,
+        statusUrl: `${base}/api/audits/${audit.id}`,
+        pdfUrl: `${base}/api/audits/${audit.id}/export-pdf`,
+      },
+      { status: 202 }
+    );
+  }
+
   const result = await executeAudit(audit.id);
 
   const full = await getAuditWithRelations(audit.id, user.userId);
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "https://agent-smith-iota.vercel.app";
 
   return NextResponse.json(
     {

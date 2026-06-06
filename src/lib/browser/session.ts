@@ -12,6 +12,10 @@ import type { Browser, BrowserContext } from "playwright-core";
 export interface SessionOptions {
   viewport?: { width: number; height: number };
   userAgent?: string;
+  /** label for the browser-pool lease (e.g. audit id / purpose) */
+  holder?: string;
+  /** how long to wait for a free Browserbase slot before giving up (ms) */
+  maxWaitMs?: number;
 }
 
 export interface BrowserSession {
@@ -32,12 +36,32 @@ export async function launchSession(opts: SessionOptions = {}): Promise<BrowserS
 
   const bbKey = process.env.BROWSERBASE_API_KEY;
   if (bbKey) {
-    const projectId = process.env.BROWSERBASE_PROJECT_ID || "";
-    const { chromium } = await import("playwright-core");
-    const wsUrl = `wss://connect.browserbase.com?apiKey=${bbKey}${projectId ? `&projectId=${projectId}` : ""}`;
-    const browser = await chromium.connectOverCDP(wsUrl);
-    const context = browser.contexts()[0] ?? (await browser.newContext());
-    return { browser, context };
+    // Serialize remote sessions through the DB-backed pool (Browserbase free tier
+    // ≈ 1 concurrent). Wait for a slot; if none frees in time, signal the caller
+    // so it can fall back (mock for technical, loud failure for authenticated).
+    const { acquireSlot } = await import("./pool");
+    const slot = await acquireSlot(opts.holder ?? "audit", opts.maxWaitMs ?? 150_000);
+    if (!slot) {
+      const err = new Error("Browser pool busy — no free Browserbase slot.");
+      (err as Error & { code?: string }).code = "BROWSER_POOL_BUSY";
+      throw err;
+    }
+    try {
+      const projectId = process.env.BROWSERBASE_PROJECT_ID || "";
+      const { chromium } = await import("playwright-core");
+      const wsUrl = `wss://connect.browserbase.com?apiKey=${bbKey}${projectId ? `&projectId=${projectId}` : ""}`;
+      const browser = await chromium.connectOverCDP(wsUrl);
+      const context = browser.contexts()[0] ?? (await browser.newContext());
+      // Release the slot when the browser closes (success or error path).
+      const origClose = browser.close.bind(browser);
+      browser.close = async () => {
+        try { await origClose(); } finally { await slot.release(); }
+      };
+      return { browser, context };
+    } catch (e) {
+      await slot.release();
+      throw e;
+    }
   }
 
   const isServerless =
