@@ -1,4 +1,4 @@
-import type { Finding, AuditScores, PageVisit } from "@/types";
+import type { Finding, AuditScores, PageVisit, SiteModel, WorkflowResult } from "@/types";
 import type { JourneyResult } from "@/lib/journey/types";
 import { safeHost } from "@/lib/utils";
 
@@ -14,6 +14,8 @@ export interface ReportData {
   uxSuggestions: string[];
   fixPrompt: string | null;
   journey: JourneyResult | null;
+  siteModel?: SiteModel | null;
+  workflow?: WorkflowResult | null;
   date: string;
 }
 
@@ -101,10 +103,20 @@ export function buildReportHtml(d: ReportData): string {
     if (sc) {
       body += `<h2>Résumé exécutif</h2><p class="meta">${esc(d.summary || "")}</p>
       <div class="bars">
-        ${(["functional", "ui", "ux", "security", "performance"] as const)
-          .map((k) => `<div><div style="display:flex;justify-content:space-between;font-size:10px"><span>${k}</span><b>${sc[k]}</b></div><div class="bar"><span style="width:${sc[k]}%;background:${scoreColor(sc[k])}"></span></div></div>`)
+        ${([["functional","Fonctionnel"],["ui","UI"],["ux","UX"],["security","Sécurité (hygiène passive)"],["performance","Performance"]] as const)
+          .map(([k,label]) => `<div><div style="display:flex;justify-content:space-between;font-size:10px"><span>${label}</span><b>${sc[k as keyof typeof sc]}</b></div><div class="bar"><span style="width:${sc[k as keyof typeof sc]}%;background:${scoreColor(sc[k as keyof typeof sc])}"></span></div></div>`)
           .join("")}
       </div>`;
+    }
+    if (d.siteModel || d.workflow) {
+      const w = d.workflow;
+      const stColor = w?.status === "pass" ? "#18a558" : w?.status === "blocked" ? "#c2410c" : "#5b6f64";
+      body += `<h2>🧠 Compréhension &amp; test du workflow</h2>`;
+      if (d.siteModel) body += `<p class="meta"><b>Type d'app :</b> ${esc(d.siteModel.appType)} — ${esc(d.siteModel.purpose)}</p>`;
+      if (w) {
+        body += `<div class="rec" style="border-left-color:${stColor}"><b>Workflow « ${esc(w.goal)} » → <span style="color:${stColor}">${esc(w.status)}</span></b><br>${esc(w.why)}</div>`;
+        if (w.steps?.length) body += `<ol style="font-size:10px;color:#33503f;margin:4px 0 0 16px">${w.steps.map((s) => `<li>${esc(s.action)} ${esc(s.target)}${s.note ? " — " + esc(s.note) : ""}</li>`).join("")}</ol>`;
+      }
     }
     if (d.findings.length) {
       body += `<h2>Findings (${d.findings.length})</h2>`;

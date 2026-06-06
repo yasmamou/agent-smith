@@ -13,6 +13,8 @@ import {
 import { generateSummary } from "@/lib/ai/anthropic";
 import { makeScreenshot } from "./screenshots";
 import { formatDate } from "@/lib/utils";
+import { aiEnabled } from "@/lib/ai/provider";
+import type { SiteModel, WorkflowResult } from "@/types";
 
 async function crawl(config: AuditConfig): Promise<CrawlResult> {
   const forced = process.env.AUDIT_ENGINE?.toLowerCase();
@@ -79,6 +81,8 @@ export interface RunAuditOptions {
   categoryFilter?: Set<import("@/types").Category>;
   /** extra focus instructions for the AI summary (custom agent) */
   aiInstructions?: string;
+  /** set false to skip the agentic workflow test (e.g. lighter custom audits) */
+  runWorkflow?: boolean;
 }
 
 /**
@@ -114,13 +118,37 @@ export async function runAudit(config: AuditConfig, opts: RunAuditOptions = {}):
     findings = findings.filter((f) => opts.categoryFilter!.has(f.category));
   }
 
+  // ---- Intelligence layer: understand the app + TEST its primary workflow ----
+  // Only on a real browser engine with AI configured (never on the mock).
+  let siteModel: SiteModel | null = null;
+  let workflow: WorkflowResult | null = null;
+  if (crawlResult.engine === "playwright" && aiEnabled() && opts.runWorkflow !== false) {
+    try {
+      const { inferSiteModel } = await import("./site-model");
+      siteModel = await inferSiteModel(crawlResult);
+      if (siteModel) {
+        const { runWorkflowTest } = await import("@/lib/journey/workflow-runner");
+        workflow = await runWorkflowTest(config.targetUrl, siteModel);
+      }
+    } catch {
+      /* the intelligence layer must never sink the core audit */
+    }
+  }
+
   const scores = computeScores(findings);
   const pages = toPageVisits(crawlResult);
   const uxSuggestions = buildUxSuggestions(findings);
   const fixPrompt = buildFixPrompt(findings, config);
   const timeline = buildTimeline(crawlResult, findings);
   const screenshots = buildScreenshots(crawlResult, findings);
-  const summary = await generateSummary(findings, scores, config, opts.aiInstructions);
+  const focus = [
+    opts.aiInstructions,
+    siteModel ? `Type d'app : ${siteModel.appType}. Workflow principal : ${siteModel.primaryWorkflow.name}.` : "",
+    workflow ? `Test du workflow « ${workflow.goal} » : ${workflow.status}.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const summary = await generateSummary(findings, scores, config, focus || undefined);
   const date = formatDate(new Date());
 
   const reportMarkdown = buildMarkdown({
@@ -148,5 +176,7 @@ export async function runAudit(config: AuditConfig, opts: RunAuditOptions = {}):
     fixPrompt,
     reportMarkdown,
     engine: crawlResult.engine,
+    siteModel,
+    workflow,
   };
 }

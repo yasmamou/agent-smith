@@ -65,6 +65,9 @@ model Audit {
   credEnc        String?
   // snapshot of the custom marketplace agent used (JSON: name, checks[], aiInstructions, …)
   agentConfig    String?
+  // intelligence layer: inferred SiteModel + agentic WorkflowResult (JSON)
+  siteModel      String?
+  workflowData   String?
 
   // JSON blobs (stringified) — SQLite has no native JSON
   scores         String?  // AuditScores

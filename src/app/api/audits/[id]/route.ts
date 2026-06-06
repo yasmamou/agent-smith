@@ -22,6 +22,8 @@ export async function GET(
       type: audit.type,
       persona: audit.persona,
       journeyData: audit.journeyData ? parseJson(audit.journeyData, null) : null,
+      siteModel: audit.siteModel ? parseJson(audit.siteModel, null) : null,
+      workflow: audit.workflowData ? parseJson(audit.workflowData, null) : null,
       mode: audit.mode,
       agentsCount: audit.agentsCount,
       durationMin: audit.durationMin,

@@ -59,6 +59,34 @@ export interface TimelineEvent {
   status: "ok" | "warn" | "error" | "info";
 }
 
+export interface SiteModel {
+  appType: string;
+  purpose: string;
+  audience: string;
+  primaryWorkflow: {
+    name: string;
+    goal: string;
+    entryPath: string;
+    successSignal: string;
+  };
+}
+
+export interface WorkflowStep {
+  n: number;
+  action: string; // click | fill | goto | assert
+  target: string;
+  note: string;
+}
+
+export interface WorkflowResult {
+  goal: string;
+  entryPath: string;
+  status: "pass" | "blocked" | "fail" | "skipped";
+  why: string;
+  steps: WorkflowStep[];
+  screenshots: string[]; // data URIs
+}
+
 export interface AuditReport {
   summary: string;
   scores: AuditScores;
@@ -72,6 +100,8 @@ export interface AuditReport {
   fixPrompt: string;
   reportMarkdown: string;
   engine: "playwright" | "mock";
+  siteModel?: SiteModel | null;
+  workflow?: WorkflowResult | null;
 }
 
 export interface AuditConfig {

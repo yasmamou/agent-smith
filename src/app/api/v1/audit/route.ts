@@ -65,6 +65,8 @@ export async function POST(req: Request) {
       pagesVisited: parseJson<PageVisit[]>(full?.pagesVisited, []),
       fixPrompt: full?.fixPrompt ?? null,
       journey: full?.journeyData ? parseJson(full.journeyData, null) : null,
+      siteModel: full?.siteModel ? parseJson(full.siteModel, null) : null,
+      workflow: full?.workflowData ? parseJson(full.workflowData, null) : null,
       error: result.error,
     },
     { status: result.ok ? 200 : 500 }

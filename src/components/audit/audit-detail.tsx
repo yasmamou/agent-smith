@@ -21,6 +21,7 @@ import { MatrixRain } from "@/components/matrix-rain";
 import { SeverityBadge } from "@/components/severity-badge";
 import { safeHost, cn } from "@/lib/utils";
 import type { JourneyResult } from "@/lib/journey/types";
+import type { SiteModel, WorkflowResult } from "@/types";
 
 export interface AuditDetailData {
   id: string;
@@ -43,6 +44,8 @@ export interface AuditDetailData {
   type?: string;
   persona?: string | null;
   journeyData?: JourneyResult | null;
+  siteModel?: SiteModel | null;
+  workflow?: WorkflowResult | null;
 }
 
 const AGENT_STEPS = [
@@ -404,6 +407,48 @@ function ReportView({
           </div>
         </div>
       </div>
+
+      {/* Intelligence layer: inferred app + tested workflow */}
+      {(audit.siteModel || audit.workflow) && (
+        <div className="mb-6 glass rounded-2xl p-5">
+          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-fg-faint">
+            🧠 Compréhension &amp; test du workflow
+          </h2>
+          {audit.siteModel && (
+            <p className="text-sm text-fg-muted">
+              <span className="text-fg">Type d&apos;app :</span> {audit.siteModel.appType} · {audit.siteModel.purpose}
+            </p>
+          )}
+          {audit.workflow && (
+            <div className="mt-3 rounded-xl border border-border bg-bg/40 p-4">
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "rounded-md px-2 py-0.5 text-xs font-semibold uppercase",
+                    audit.workflow.status === "pass" && "bg-matrix/15 text-matrix",
+                    audit.workflow.status === "blocked" && "bg-high/15 text-high",
+                    audit.workflow.status === "fail" && "bg-critical/15 text-critical",
+                    audit.workflow.status === "skipped" && "bg-surface text-fg-faint"
+                  )}
+                >
+                  {audit.workflow.status === "pass" ? "✅ réussi" : audit.workflow.status === "blocked" ? "⚠ bloqué" : audit.workflow.status}
+                </span>
+                <span className="text-sm font-medium text-fg">Workflow : {audit.workflow.goal}</span>
+              </div>
+              <p className="mt-2 text-sm text-fg-muted">{audit.workflow.why}</p>
+              {audit.workflow.steps?.length > 0 && (
+                <ol className="mt-2 space-y-0.5 text-xs text-fg-faint">
+                  {audit.workflow.steps.map((s) => (
+                    <li key={s.n}>
+                      {s.n}. <span className="text-fg-muted">{s.action}</span> {s.target} {s.note ? `— ${s.note}` : ""}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="mb-5 flex flex-wrap gap-1 border-b border-border">

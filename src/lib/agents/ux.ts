@@ -86,27 +86,32 @@ export const uxAgent: AuditAgent = {
       );
     }
 
-    // Generic UX heuristics — onboarding/first-run guidance
-    findings.push(
-      makeFinding({
-        agent: "UXAgent",
-        title: "No visible first-run guidance for new users",
-        severity: "low",
+    // Onboarding/first-run guidance — only when there's a real signal:
+    // no actionable control at all, or many competing CTAs (no single primary).
+    const entry = crawl.pages[0];
+    const noClearCta = !!entry && (entry.buttons === 0 || entry.buttons > 12);
+    if (noClearCta) {
+      findings.push(
+        makeFinding({
+          agent: "UXAgent",
+          title: "No visible first-run guidance for new users",
+          severity: "low",
         category: "ux",
         description:
           "The landing/app entry does not surface an obvious next step for a brand-new user. A single, unmistakable primary CTA lifts activation.",
-        evidence: `Entry page: ${crawl.pages[0]?.url ?? crawl.target}`,
-        reproductionSteps: [
-          "Open the site as a logged-out first-time visitor",
-          "Look for one obvious next action above the fold",
-        ],
-        probableCause: "Multiple equally-weighted CTAs, or value proposition buried below the fold.",
-        recommendedFix:
-          "Lead with a single primary CTA and a one-sentence value prop above the fold; demote secondary actions.",
-        fixPromptBlock:
-          "On the entry page, make one primary CTA visually dominant above the fold, with a single-sentence value proposition. Demote secondary links to ghost/outline styling.",
-      })
-    );
+          evidence: `Entry page: ${entry.url} — ${entry.buttons} interactive control(s) detected ${entry.buttons === 0 ? "(none)" : "(many competing)"}.`,
+          reproductionSteps: [
+            "Open the site as a logged-out first-time visitor",
+            "Look for one obvious next action above the fold",
+          ],
+          probableCause: "Multiple equally-weighted CTAs, or value proposition buried below the fold.",
+          recommendedFix:
+            "Lead with a single primary CTA and a one-sentence value prop above the fold; demote secondary actions.",
+          fixPromptBlock:
+            "On the entry page, make one primary CTA visually dominant above the fold, with a single-sentence value proposition. Demote secondary links to ghost/outline styling.",
+        })
+      );
+    }
 
     return findings;
   },

@@ -28,6 +28,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     uxSuggestions: parseJson<string[]>(audit.uxSuggestions, []),
     fixPrompt: audit.fixPrompt,
     journey: audit.journeyData ? parseJson<JourneyResult | null>(audit.journeyData, null) : null,
+    siteModel: audit.siteModel ? parseJson<import("@/types").SiteModel | null>(audit.siteModel, null) : null,
+    workflow: audit.workflowData ? parseJson<import("@/types").WorkflowResult | null>(audit.workflowData, null) : null,
     date: formatDate(audit.completedAt ?? audit.createdAt),
   });
 

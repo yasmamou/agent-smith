@@ -182,6 +182,20 @@ export async function playwrightCrawl(config: AuditConfig): Promise<CrawlResult>
       await page.close();
     }
     cookiesRaw = await context.cookies().catch(() => []);
+
+    // Real broken-link check: HEAD/GET the internal links we discovered but
+    // didn't crawl (bounded), so the finding fires from live data, not the mock.
+    const leftover = queue.filter((u) => !visited.has(u)).slice(0, 10);
+    const broken: string[] = [];
+    for (const url of leftover) {
+      try {
+        const resp = await context.request.get(url, { timeout: 8000, maxRedirects: 3 });
+        if (resp.status() >= 400) broken.push(`${resp.status()} — ${url}`);
+      } catch {
+        broken.push(`ERR — ${url}`);
+      }
+    }
+    if (broken.length && pages[0]) pages[0].brokenLinks = broken;
   } finally {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
