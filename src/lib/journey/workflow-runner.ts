@@ -145,7 +145,8 @@ export async function runWorkflowTest(
     result.steps.push({ n: result.steps.length + 1, action, target: tgt.slice(0, 60), note });
 
   try {
-    // Write-path mode: log in first with the test account.
+    // Write-path mode: log in first, then re-infer the workflow from the
+    // AUTHENTICATED surface (the logged-out site model is auth-centric).
     if (opts.creds) {
       const ok = await loginFlow(page, target, opts.creds);
       log("login", "", ok ? "✅ connecté (compte de test)" : "échec de connexion");
@@ -157,20 +158,40 @@ export async function runWorkflowTest(
         await browser.close().catch(() => {});
         return result;
       }
-    }
-
-    const entry = (() => {
+      await killOverlays(page);
       try {
-        return new URL(wf.entryPath, target).href;
+        const inv0 = (await page.evaluate(INVENTORY_FN).catch(() => ({ clickables: [] }))) as { clickables: string[] };
+        const re = await aiComplete(
+          `Utilisateur CONNECTÉ sur ${page.url()}. Actions disponibles : ${JSON.stringify(inv0.clickables)}.\n` +
+            `Quel est LE workflow principal à tester pour cet utilisateur connecté ? Réponds JSON :\n` +
+            `{"goal":"action concrète à accomplir","successSignal":"texte court réellement affiché quand c'est réussi"}`,
+          { json: true, maxTokens: 120 }
+        );
+        const m = parseAiJson<{ goal?: string; successSignal?: string } | null>(re, null);
+        if (m?.goal) {
+          wf.goal = m.goal;
+          if (m.successSignal) wf.successSignal = m.successSignal;
+          result.goal = m.goal;
+          log("infer", wf.goal, "🎯 workflow connecté ré-inféré");
+        }
       } catch {
-        return target;
+        /* keep the original goal */
       }
-    })();
-    await page.goto(entry, { waitUntil: "domcontentloaded", timeout: 25000 });
-    await page.waitForLoadState("networkidle", { timeout: 7000 }).catch(() => {});
-    await killOverlays(page);
-    log("goto", wf.entryPath, "Entrée du parcours");
-    await shot();
+      // stay on the post-login page (don't navigate to the auth entryPath)
+    } else {
+      const entry = (() => {
+        try {
+          return new URL(wf.entryPath, target).href;
+        } catch {
+          return target;
+        }
+      })();
+      await page.goto(entry, { waitUntil: "domcontentloaded", timeout: 25000 });
+      await page.waitForLoadState("networkidle", { timeout: 7000 }).catch(() => {});
+      await killOverlays(page);
+      log("goto", wf.entryPath, "Entrée du parcours");
+      await shot();
+    }
 
     const tried = new Map<string, number>();
     const filled = new Set<string>();
