@@ -9,12 +9,12 @@ import type { AuditReport, AuditConfig, AuditStatus, Finding, AuditScores } from
 export async function createAudit(
   userId: string,
   config: AuditConfig,
-  extra?: { type?: string; persona?: string; customAgentSlug?: string; allowWrites?: boolean }
+  extra?: { type?: string; persona?: string; customAgentSlug?: string; presetSlug?: string; allowWrites?: boolean }
 ) {
   const type = extra?.type || "technical";
   const hasCreds = !!(config.login && config.password);
 
-  // Custom marketplace agent → snapshot its config onto the audit.
+  // Custom marketplace agent (user-built OR official preset) → snapshot config.
   let agentConfig: string | null = null;
   if (type === "custom" && extra?.customAgentSlug) {
     const agent = await prisma.customAgent.findFirst({
@@ -30,6 +30,10 @@ export async function createAudit(
         avatar: agent.avatar,
       });
     }
+  } else if (type === "custom" && extra?.presetSlug) {
+    const { presetAgentConfig } = await import("@/lib/agents/profiles");
+    const cfg = presetAgentConfig(extra.presetSlug);
+    if (cfg) agentConfig = JSON.stringify(cfg);
   }
   // For authenticated audits, store credentials ENCRYPTED (AES-GCM) — used only
   // at run time, never in clear, cleared after the run.

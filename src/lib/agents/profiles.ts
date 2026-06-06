@@ -21,6 +21,8 @@ export const AGENT_PROFILES: AgentProfile[] = [
     avatar: "🕶️",
     premium: false,
     focus: ["functional", "ui", "ux", "security", "performance"],
+    checks: ["console-errors","network-errors","broken-links","form-labels","bad-status","viewport-meta","contrast","img-alt","heading-hierarchy","empty-states","first-run","https","security-headers","insecure-cookies","tech-leak","slow-pages"],
+    aiInstructions: "Audit complet et équilibré ; priorise les blocages fonctionnels et les risques de sécurité.",
   },
   {
     slug: "agent-mouni",
@@ -37,6 +39,8 @@ export const AGENT_PROFILES: AgentProfile[] = [
     avatar: "🧭",
     premium: true,
     focus: ["ux", "ui"],
+    checks: ["heading-hierarchy","empty-states","first-run","viewport-meta","contrast","img-alt","form-labels"],
+    aiInstructions: "Concentre-toi sur la clarté, la friction d'onboarding, les états vides et la microcopie. Ton orienté conversion/UX.",
   },
   {
     slug: "agent-karim",
@@ -53,6 +57,8 @@ export const AGENT_PROFILES: AgentProfile[] = [
     avatar: "🛡️",
     premium: true,
     focus: ["security", "functional"],
+    checks: ["https","security-headers","insecure-cookies","tech-leak","sql-injection","xss-reflected"],
+    aiInstructions: "Priorité aux risques exploitables, fuites de données et durcissement des en-têtes. Sondes actives non destructives.",
   },
   {
     slug: "agent-lina",
@@ -69,6 +75,8 @@ export const AGENT_PROFILES: AgentProfile[] = [
     avatar: "📱",
     premium: true,
     focus: ["ui", "ux", "performance"],
+    checks: ["viewport-meta","contrast","img-alt","slow-pages","first-run"],
+    aiInstructions: "Optique mobile-first : responsive, contraste, lisibilité, performance perçue.",
   },
   {
     slug: "agent-theo",
@@ -85,8 +93,24 @@ export const AGENT_PROFILES: AgentProfile[] = [
     avatar: "📈",
     premium: true,
     focus: ["ux", "functional"],
+    checks: ["first-run","empty-states","broken-links","form-labels","console-errors","network-errors"],
+    aiInstructions: "Audit du funnel : pièges de drop-off, CTA morts, frictions d'inscription/checkout, signaux de confiance.",
   },
 ];
+
+/** A preset → a custom-agent config shape (for running/forking). */
+export function presetAgentConfig(slug: string) {
+  const p = getAgentProfile(slug);
+  if (!p) return null;
+  return {
+    name: p.name,
+    specialty: p.focus[0] || "functional",
+    checks: p.checks ?? [],
+    aiInstructions: p.aiInstructions,
+    accent: p.accent,
+    avatar: p.avatar,
+  };
+}
 
 export function getAgentProfile(slug: string) {
   return AGENT_PROFILES.find((a) => a.slug === slug);

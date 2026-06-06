@@ -132,4 +132,7 @@ export interface AgentProfile {
   avatar: string; // emoji / glyph
   premium: boolean;
   focus: Category[];
+  /** catalogue check ids this agent runs (makes the preset actually runnable) */
+  checks?: string[];
+  aiInstructions?: string;
 }

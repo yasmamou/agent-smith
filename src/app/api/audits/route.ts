@@ -57,6 +57,7 @@ export async function POST(req: Request) {
     type: data.type,
     persona: data.persona,
     customAgentSlug: data.customAgentSlug,
+    presetSlug: data.presetSlug,
     allowWrites: data.allowWrites,
   });
   return NextResponse.json({ ok: true, id: audit.id });

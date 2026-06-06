@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Textarea, Label } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { PERSONAS } from "@/lib/journey/personas";
+import { getAgentProfile } from "@/lib/agents/profiles";
 import type { AuditMode } from "@/types";
 
 const MODES: { key: AuditMode; label: string; desc: string; icon: typeof Zap }[] = [
@@ -36,11 +37,20 @@ export default function NewAuditPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [agentSlug, setAgentSlug] = useState<string | null>(null);
+  const [presetSlug, setPresetSlug] = useState<string | null>(null);
   const [agentName, setAgentName] = useState<string>("");
 
-  // ?agent=<slug> → run with a custom marketplace agent
+  // ?agent=<slug> → custom agent · ?preset=<slug> → official marketplace agent
   useEffect(() => {
-    const slug = new URLSearchParams(window.location.search).get("agent");
+    const qs = new URLSearchParams(window.location.search);
+    const preset = qs.get("preset");
+    if (preset) {
+      setPresetSlug(preset);
+      const p = getAgentProfile(preset);
+      if (p) setAgentName(p.name);
+      return;
+    }
+    const slug = qs.get("agent");
     if (!slug) return;
     setAgentSlug(slug);
     fetch("/api/agents")
@@ -68,9 +78,10 @@ export default function NewAuditPage() {
     setLoading(true);
     const payload = {
       targetUrl: String(form.get("targetUrl") || "").trim(),
-      type: agentSlug ? "custom" : auditType,
+      type: agentSlug || presetSlug ? "custom" : auditType,
       customAgentSlug: agentSlug || undefined,
-      persona: !agentSlug && auditType !== "technical" ? persona : undefined,
+      presetSlug: presetSlug || undefined,
+      persona: !agentSlug && !presetSlug && auditType !== "technical" ? persona : undefined,
       allowWrites,
       mode,
       agentsCount,
@@ -118,15 +129,16 @@ export default function NewAuditPage() {
           />
         </div>
 
-        {/* Custom agent banner */}
-        {agentSlug && (
+        {/* Custom/preset agent banner */}
+        {(agentSlug || presetSlug) && (
           <div className="flex items-center justify-between rounded-xl border border-matrix-dim/50 bg-matrix/5 px-4 py-3">
             <span className="text-sm text-fg">
-              🤖 Audit avec ton agent <strong className="text-matrix">{agentName || "personnalisé"}</strong>
+              🤖 Audit avec l&apos;agent <strong className="text-matrix">{agentName || "personnalisé"}</strong>
+              {presetSlug && <span className="ml-2 text-xs text-fg-faint">(officiel)</span>}
             </span>
             <button
               type="button"
-              onClick={() => { setAgentSlug(null); setAgentName(""); }}
+              onClick={() => { setAgentSlug(null); setPresetSlug(null); setAgentName(""); }}
               className="text-xs text-fg-faint hover:text-fg"
             >
               retirer
@@ -135,7 +147,7 @@ export default function NewAuditPage() {
         )}
 
         {/* Audit type */}
-        <div className={cn(agentSlug && "hidden")}>
+        <div className={cn((agentSlug || presetSlug) && "hidden")}>
           <Label>Type d&apos;audit</Label>
           <div className="grid gap-3 sm:grid-cols-3">
             {TYPES.map((t) => (

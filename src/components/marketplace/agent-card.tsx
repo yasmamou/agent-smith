@@ -1,9 +1,35 @@
+"use client";
+
 import Link from "next/link";
-import { Star } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Star, GitFork } from "lucide-react";
 import type { AgentProfile } from "@/types";
 import { Button } from "@/components/ui/button";
 
 export function MarketAgentCard({ agent }: { agent: AgentProfile }) {
+  const router = useRouter();
+  const [forking, setForking] = useState(false);
+
+  async function fork() {
+    setForking(true);
+    const res = await fetch("/api/agents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: `${agent.name} (copie)`,
+        specialty: agent.focus[0] || "functional",
+        description: agent.tagline,
+        checks: agent.checks ?? [],
+        aiInstructions: agent.aiInstructions,
+        avatar: agent.avatar,
+      }),
+    });
+    setForking(false);
+    if (res.status === 401) { router.push("/login?next=/marketplace"); return; }
+    if (res.ok) router.push("/marketplace");
+    router.refresh();
+  }
   return (
     <div className="glass flex h-full flex-col rounded-2xl p-6 transition-colors hover:border-border-bright">
       <div className="flex items-start justify-between">
@@ -56,11 +82,16 @@ export function MarketAgentCard({ agent }: { agent: AgentProfile }) {
         </div>
       </div>
 
-      <Link href={`/signup?agent=${agent.slug}`} className="mt-4">
-        <Button variant={agent.premium ? "outline" : "primary"} className="w-full">
-          Use this agent
+      <div className="mt-4 flex gap-2">
+        <Link href={`/dashboard/audits/new?preset=${agent.slug}`} className="flex-1">
+          <Button variant={agent.premium ? "outline" : "primary"} className="w-full">
+            Lancer un audit
+          </Button>
+        </Link>
+        <Button variant="ghost" onClick={fork} disabled={forking} title="Forker en agent perso éditable">
+          <GitFork /> {forking ? "…" : "Forker"}
         </Button>
-      </Link>
+      </div>
     </div>
   );
 }
