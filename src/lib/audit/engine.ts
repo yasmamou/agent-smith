@@ -88,6 +88,8 @@ export interface RunAuditOptions {
   creds?: { email: string; password: string };
   /** allow form writes without login (owned site, no auth) */
   allowWrites?: boolean;
+  /** also produce a strategic platform analysis (Agent Néo / strategist) */
+  strategy?: boolean;
 }
 
 /**
@@ -137,6 +139,17 @@ export async function runAudit(config: AuditConfig, opts: RunAuditOptions = {}):
       }
     } catch {
       /* the intelligence layer must never sink the core audit */
+    }
+  }
+
+  // ---- Strategy layer (Agent Néo): product/platform analysis beyond bugs ----
+  let strategy: import("@/types").StrategyResult | null = null;
+  if (opts.strategy && aiEnabled() && crawlResult.engine === "playwright") {
+    try {
+      const { generateStrategy } = await import("@/lib/strategy/advisor");
+      strategy = await generateStrategy(crawlResult, siteModel, findings);
+    } catch {
+      /* strategy is additive — never sink the audit */
     }
   }
 
@@ -195,5 +208,6 @@ export async function runAudit(config: AuditConfig, opts: RunAuditOptions = {}):
     engine: crawlResult.engine,
     siteModel,
     workflow,
+    strategy,
   };
 }

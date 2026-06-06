@@ -81,7 +81,7 @@ async function main() {
     console.error("   Real local Chromium · no cloud · this may take 20–90s…\n");
   }
 
-  const report = await runAudit(config, { allowWrites, creds, runWorkflow: true });
+  const report = await runAudit(config, { allowWrites, creds, runWorkflow: true, strategy: has("--strategy") });
 
   if (jsonOnly) {
     process.stdout.write(JSON.stringify(report, null, 2));
@@ -104,6 +104,14 @@ async function main() {
     .filter((f) => ["critical", "high", "medium"].includes(f.severity))
     .slice(0, 8)
     .forEach((f) => console.log(`  [${f.severity.toUpperCase()}] ${f.title} — ${f.recommendedFix.slice(0, 90)}`));
+
+  if (report.strategy) {
+    console.log(`\n🧠 Stratégie (Agent Néo):`);
+    console.log(`   ${report.strategy.topPriority}`);
+    report.strategy.recommendations.slice(0, 8).forEach((r) =>
+      console.log(`   [${r.impact.toUpperCase()} · ${r.lever}] ${r.title}`)
+    );
+  }
 
   if (report.fixPrompt) {
     writeFileSync(fixPath, report.fixPrompt);

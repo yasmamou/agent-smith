@@ -21,7 +21,7 @@ import { MatrixRain } from "@/components/matrix-rain";
 import { SeverityBadge } from "@/components/severity-badge";
 import { safeHost, cn, scoreColor } from "@/lib/utils";
 import type { JourneyResult } from "@/lib/journey/types";
-import type { SiteModel, WorkflowResult } from "@/types";
+import type { SiteModel, WorkflowResult, StrategyResult } from "@/types";
 
 export interface AuditDetailData {
   id: string;
@@ -46,6 +46,7 @@ export interface AuditDetailData {
   journeyData?: JourneyResult | null;
   siteModel?: SiteModel | null;
   workflow?: WorkflowResult | null;
+  strategy?: StrategyResult | null;
 }
 
 const AGENT_STEPS = [
@@ -450,6 +451,43 @@ function ReportView({
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Strategy layer: Agent Néo product/platform analysis */}
+      {audit.strategy && (
+        <div className="glass-bright mb-6 rounded-2xl p-5" style={{ borderColor: "#b388ff55" }}>
+          <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold" style={{ color: "#c9abff" }}>
+            🧠 Stratégie produit &amp; plateforme — Agent Néo
+          </h3>
+          <p className="text-sm text-fg-muted">{audit.strategy.thesis}</p>
+          {audit.strategy.topPriority && (
+            <div className="mt-3 rounded-xl border px-4 py-3 text-sm" style={{ borderColor: "#b388ff55", background: "#b388ff11" }}>
+              <span className="font-semibold" style={{ color: "#c9abff" }}>Priorité #1 — </span>
+              <span className="text-fg">{audit.strategy.topPriority}</span>
+            </div>
+          )}
+          <div className="mt-4 space-y-3">
+            {audit.strategy.recommendations.map((r, i) => (
+              <div key={i} className="rounded-xl border border-border bg-bg/40 p-3.5">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                    style={{
+                      background: r.impact === "high" ? "#ff7a1822" : r.impact === "medium" ? "#ffd02e22" : "#7ad1ff22",
+                      color: r.impact === "high" ? "#ff9d4d" : r.impact === "medium" ? "#ffd02e" : "#7ad1ff",
+                    }}
+                  >
+                    {r.impact}
+                  </span>
+                  <span className="text-[10px] uppercase tracking-wide text-fg-faint">{r.lever}</span>
+                  <span className="text-sm font-semibold text-fg">{r.title}</span>
+                </div>
+                <p className="mt-1.5 text-xs text-fg-muted"><span className="text-fg-faint">Constat —</span> {r.observation}</p>
+                <p className="mt-1 text-xs text-fg-muted"><span className="text-fg-faint">Action —</span> {r.action}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

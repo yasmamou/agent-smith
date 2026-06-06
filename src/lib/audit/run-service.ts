@@ -90,7 +90,7 @@ export async function executeAudit(auditId: string): Promise<RunResult> {
     let opts: Record<string, unknown> = { allowWrites: audit.allowWrites };
     if (audit.type === "custom" && audit.agentConfig) {
       try {
-        const cfg = JSON.parse(audit.agentConfig) as { checks?: string[]; aiInstructions?: string };
+        const cfg = JSON.parse(audit.agentConfig) as { checks?: string[]; aiInstructions?: string; strategy?: boolean };
         const checks = cfg.checks ?? [];
         const { categoriesForChecks, activeChecks } = await import("@/lib/agents/catalog");
         opts = {
@@ -98,6 +98,7 @@ export async function executeAudit(auditId: string): Promise<RunResult> {
           activeCheckIds: activeChecks(checks).map((c) => c.id),
           categoryFilter: categoriesForChecks(checks),
           aiInstructions: cfg.aiInstructions || undefined,
+          strategy: !!cfg.strategy,
         };
       } catch {
         /* fall back to a full technical audit */

@@ -103,6 +103,7 @@ export interface AuditReport {
   engine: "playwright" | "mock";
   siteModel?: SiteModel | null;
   workflow?: WorkflowResult | null;
+  strategy?: StrategyResult | null;
 }
 
 export interface AuditConfig {
@@ -135,4 +136,22 @@ export interface AgentProfile {
   /** catalogue check ids this agent runs (makes the preset actually runnable) */
   checks?: string[];
   aiInstructions?: string;
+  /** when true, the audit also produces a strategic platform analysis (AI). */
+  strategy?: boolean;
+}
+
+/** One strategic, product/platform-level recommendation (beyond tech bugs). */
+export interface StrategyRecommendation {
+  title: string;
+  /** lever category: positioning | activation | retention | monetization | acquisition | trust | analytics */
+  lever: string;
+  observation: string;
+  action: string;
+  impact: "high" | "medium" | "low";
+}
+
+export interface StrategyResult {
+  thesis: string; // one-paragraph strategic read of the product
+  topPriority: string; // the single highest-leverage move
+  recommendations: StrategyRecommendation[];
 }

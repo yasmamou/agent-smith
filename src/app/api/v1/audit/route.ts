@@ -122,6 +122,7 @@ export async function POST(req: Request) {
       journey: full?.journeyData ? parseJson(full.journeyData, null) : null,
       siteModel: full?.siteModel ? parseJson(full.siteModel, null) : null,
       workflow: full?.workflowData ? parseJson(full.workflowData, null) : null,
+      strategy: full?.strategyData ? parseJson(full.strategyData, null) : null,
       error: result.error,
     },
     { status: result.ok ? 200 : 500 }

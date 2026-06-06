@@ -79,6 +79,26 @@ export const AGENT_PROFILES: AgentProfile[] = [
     aiInstructions: "Optique mobile-first : responsive, contraste, lisibilité, performance perçue.",
   },
   {
+    slug: "agent-neo",
+    name: "Agent Néo",
+    tagline: "Stratège produit & plateforme — au-delà des bugs",
+    specialty: "Stratégie produit / growth",
+    testingStyle:
+      "Lit le produit comme un partner growth : proposition de valeur, activation (time-to-wow), rétention, monétisation, acquisition/viralité, confiance et mesure. Rend un plan priorisé par levier, pas une liste de bugs.",
+    price: "€19",
+    priceNote: "par analyse",
+    rating: 4.9,
+    reviews: 87,
+    accent: "#b388ff",
+    avatar: "🧠",
+    premium: true,
+    focus: ["ux", "functional"],
+    checks: ["first-run", "empty-states", "heading-hierarchy", "form-labels", "broken-links"],
+    aiInstructions:
+      "Analyse stratégique produit/plateforme : positionnement, activation, rétention, monétisation, acquisition, confiance, mesure. Priorise par effet de levier.",
+    strategy: true,
+  },
+  {
     slug: "agent-theo",
     name: "Agent Theo",
     tagline: "Conversion & funnel QA",
@@ -109,6 +129,7 @@ export function presetAgentConfig(slug: string) {
     aiInstructions: p.aiInstructions,
     accent: p.accent,
     avatar: p.avatar,
+    strategy: !!p.strategy,
   };
 }
 

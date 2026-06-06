@@ -92,6 +92,7 @@ export async function persistReport(auditId: string, report: AuditReport) {
         fixPrompt: report.fixPrompt,
         siteModel: report.siteModel ? JSON.stringify(report.siteModel) : null,
         workflowData: report.workflow ? JSON.stringify(report.workflow) : null,
+        strategyData: report.strategy ? JSON.stringify(report.strategy) : null,
         completedAt: new Date(),
       },
     }),

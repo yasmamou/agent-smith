@@ -55,6 +55,7 @@ export default async function AuditDetailPage({
     journeyData: audit.journeyData ? parseJson<import("@/lib/journey/types").JourneyResult | null>(audit.journeyData, null) : null,
     siteModel: audit.siteModel ? parseJson<import("@/types").SiteModel | null>(audit.siteModel, null) : null,
     workflow: audit.workflowData ? parseJson<import("@/types").WorkflowResult | null>(audit.workflowData, null) : null,
+    strategy: audit.strategyData ? parseJson<import("@/types").StrategyResult | null>(audit.strategyData, null) : null,
   };
 
   return (

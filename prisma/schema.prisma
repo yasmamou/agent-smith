@@ -90,6 +90,8 @@ model Audit {
   // intelligence layer: inferred SiteModel + agentic WorkflowResult (JSON)
   siteModel      String?
   workflowData   String?
+  // strategy layer (Agent Néo): StrategyResult (JSON)
+  strategyData   String?
 
   // JSON blobs (stringified) — SQLite has no native JSON
   scores         String?  // AuditScores
