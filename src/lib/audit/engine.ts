@@ -92,6 +92,8 @@ export interface RunAuditOptions {
   strategy?: boolean;
   /** advisor lens: strategy (Néo) | sales (Trinity) | design (Oracle) | ceo (Morpheus) */
   advisor?: "strategy" | "sales" | "design" | "ceo" | "seo" | "analytics";
+  /** run the WHOLE squad (Agent Smith 360) — every advisor lens, attributed */
+  advisors?: ("strategy" | "sales" | "design" | "ceo" | "seo" | "analytics")[];
 }
 
 /**
@@ -144,15 +146,28 @@ export async function runAudit(config: AuditConfig, opts: RunAuditOptions = {}):
     }
   }
 
-  // ---- Advisor layer (Néo strategy / Trinity sales / Oracle design) ----
+  // ---- Advisor layer (Néo strategy / Trinity sales / Oracle design / …) ----
   let strategy: import("@/types").StrategyResult | null = null;
-  const advisorLens = opts.advisor ?? (opts.strategy ? "strategy" : undefined);
-  if (advisorLens && aiEnabled() && crawlResult.engine === "playwright") {
-    try {
-      const { generateAdvice } = await import("@/lib/strategy/advisor");
-      strategy = await generateAdvice(advisorLens, crawlResult, siteModel, findings);
-    } catch {
-      /* advisor is additive — never sink the audit */
+  let advisors: import("@/types").StrategyResult[] | null = null;
+  if (aiEnabled() && crawlResult.engine === "playwright") {
+    const { generateAdvice } = await import("@/lib/strategy/advisor");
+    // Full squad ("Agent Smith 360") runs every requested lens, attributed.
+    if (opts.advisors?.length) {
+      const results = [];
+      for (const lens of opts.advisors) {
+        try { const r = await generateAdvice(lens, crawlResult, siteModel, findings); if (r) results.push(r); }
+        catch { /* one lens failing must not sink the others */ }
+      }
+      if (results.length) {
+        advisors = results;
+        strategy = results.find((r) => r.lens === "strategy") ?? results[0]; // keep single-panel UI working
+      }
+    } else {
+      const advisorLens = opts.advisor ?? (opts.strategy ? "strategy" : undefined);
+      if (advisorLens) {
+        try { strategy = await generateAdvice(advisorLens, crawlResult, siteModel, findings); }
+        catch { /* advisor is additive */ }
+      }
     }
   }
 
@@ -212,5 +227,6 @@ export async function runAudit(config: AuditConfig, opts: RunAuditOptions = {}):
     siteModel,
     workflow,
     strategy,
+    advisors,
   };
 }

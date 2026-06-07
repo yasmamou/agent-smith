@@ -104,6 +104,8 @@ export interface AuditReport {
   siteModel?: SiteModel | null;
   workflow?: WorkflowResult | null;
   strategy?: StrategyResult | null;
+  /** full-squad mode (Agent Smith 360): one result per advisor lens, attributed */
+  advisors?: StrategyResult[] | null;
 }
 
 export interface AuditConfig {

@@ -81,8 +81,12 @@ async function main() {
     console.error("   Real local Chromium · no cloud · this may take 20–90s…\n");
   }
 
+  const panel = has("--panel");
   const advisor = has("--analytics") ? "analytics" : has("--seo") ? "seo" : has("--ceo") ? "ceo" : has("--sales") ? "sales" : has("--design") ? "design" : has("--strategy") ? "strategy" : undefined;
-  const report = await runAudit(config, { allowWrites, creds, runWorkflow: true, advisor });
+  const report = await runAudit(config, {
+    allowWrites, creds, runWorkflow: true, advisor,
+    advisors: panel ? (["strategy", "sales", "design", "ceo", "seo", "analytics"] as const).slice() : undefined,
+  });
 
   if (jsonOnly) {
     process.stdout.write(JSON.stringify(report, null, 2));
@@ -106,11 +110,12 @@ async function main() {
     .slice(0, 8)
     .forEach((f) => console.log(`  [${f.severity.toUpperCase()}] ${f.title} — ${f.recommendedFix.slice(0, 90)}`));
 
-  if (report.strategy) {
-    console.log(`\n🧠 ${report.strategy.agentName || "Conseil"} (${report.strategy.lens || "strategy"}):`);
-    console.log(`   ${report.strategy.topPriority}`);
-    report.strategy.recommendations.slice(0, 8).forEach((r) =>
-      console.log(`   [${r.impact.toUpperCase()} · ${r.lever}] ${r.title}`)
+  const panelResults = report.advisors && report.advisors.length ? report.advisors : report.strategy ? [report.strategy] : [];
+  for (const adv of panelResults) {
+    console.log(`\n🤖 ${adv.agentName || "Conseil"} (${adv.lens || "strategy"}) — ${adv.recommendations.length} recos`);
+    console.log(`   ➤ ${adv.topPriority}`);
+    adv.recommendations.slice(0, 10).forEach((r) =>
+      console.log(`     [${r.impact.toUpperCase()} · ${r.lever}] ${r.title}`)
     );
   }
 
