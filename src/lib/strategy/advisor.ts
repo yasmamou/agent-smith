@@ -139,6 +139,7 @@ export async function generateAdvice(
   const cfg = LENSES[lens] ?? LENSES.strategy;
 
   const pages = crawl.pages.slice(0, 8).map((p) => `- ${p.url} — "${p.title}"`).join("\n");
+  const homeText = (crawl.pages.find((p) => p.textExcerpt && p.textExcerpt.length > 40)?.textExcerpt || "").slice(0, 900);
   const uxSignals = findings
     .filter((f) => f.category === "ux" || f.category === "functional" || f.category === "ui")
     .slice(0, 10)
@@ -168,6 +169,9 @@ MODÈLE DU SITE (inféré):
 
 PAGES OBSERVÉES:
 ${pages || "(aucune)"}
+
+CONTENU RÉEL DE LA PAGE D'ACCUEIL (texte visible — appuie-toi DESSUS, n'invente pas le secteur) :
+"""${homeText || "(aucun texte exploitable)"}"""
 
 SIGNAUX RELEVÉS (UX/UI/fonctionnel):
 ${uxSignals || "(aucun)"}

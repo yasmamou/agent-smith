@@ -31,6 +31,8 @@ export interface CrawlPage {
   brokenLinks: string[];
   hasAutofocusTrap: boolean;
   textLength: number;
+  /** cleaned visible-text excerpt (~900 chars) — lets the LLM understand the real product */
+  textExcerpt?: string;
 }
 
 export interface CrawlResult {

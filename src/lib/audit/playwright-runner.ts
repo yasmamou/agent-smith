@@ -67,6 +67,7 @@ const PAGE_ANALYSIS_FN = `() => {
     inputsWithoutLabel: unlabeled.length,
     lowContrastSamples: lowContrast(),
     textLength: (document.body && document.body.innerText || '').length,
+    textExcerpt: ((document.body && document.body.innerText) || '').replace(/\\s+/g, ' ').trim().slice(0, 900),
     internalLinks: Array.from(document.querySelectorAll('a[href]'))
       .map((a) => a.href)
       .filter((h) => h.startsWith(location.origin))
@@ -177,6 +178,7 @@ export async function playwrightCrawl(config: AuditConfig): Promise<CrawlResult>
         brokenLinks: [],
         hasAutofocusTrap: false,
         textLength: (analysis.textLength as number) ?? 0,
+        textExcerpt: (analysis.textExcerpt as string) ?? "",
       });
 
       await page.close();

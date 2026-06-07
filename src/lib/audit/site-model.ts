@@ -26,9 +26,15 @@ export async function inferSiteModel(crawl: CrawlResult): Promise<SiteModel | nu
     })
     .join("\n");
 
+  // The actual visible text of the entry/home page — THE signal for what the
+  // product really is (without it the model guesses from the domain name).
+  const homeText = (crawl.pages.find((p) => p.textExcerpt && p.textExcerpt.length > 40)?.textExcerpt || "").slice(0, 900);
+
   const prompt =
     `Tu analyses un site web pour en déduire sa nature et son parcours utilisateur principal.\n` +
     `Hôte : ${safeHost(crawl.target)}\nPages observées :\n${snapshot}\n\n` +
+    `CONTENU RÉEL DE LA PAGE D'ACCUEIL (texte visible) :\n"""${homeText || "(aucun texte exploitable)"}"""\n\n` +
+    `RÈGLE ABSOLUE : déduis la nature du produit UNIQUEMENT à partir du contenu réel ci-dessus, jamais du nom de domaine ni d'une supposition. Si le contenu est insuffisant, mets appType="indéterminé". N'invente jamais un secteur.\n\n` +
     `Réponds STRICTEMENT en JSON (rien d'autre) avec ce schéma :\n` +
     `{"appType":"...","purpose":"phrase courte","audience":"...","primaryWorkflow":{"name":"...","goal":"ce qu'un utilisateur veut accomplir","entryPath":"un des chemins ci-dessus","successSignal":"un mot/texte court qui prouve que le but est atteint OU un fragment d'URL"}}\n` +
     `Le successSignal doit être un texte court réellement présent quand le but est atteint (ex: "Confirmation", "Merci", "/dashboard", "Résultat").`;
