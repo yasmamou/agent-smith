@@ -161,6 +161,10 @@ export async function playwrightCrawl(
           if (headers["x-powered-by"]) techLeaks.push(`X-Powered-By: ${headers["x-powered-by"]}`);
         }
         await page.waitForLoadState("load", { timeout: 8000 }).catch(() => {});
+        // SPAs render content client-side AFTER load — wait for the network to
+        // settle + a short beat so the visible text/excerpt isn't an empty shell.
+        await page.waitForLoadState("networkidle", { timeout: 6000 }).catch(() => {});
+        await page.waitForTimeout(1200);
       } catch {
         if (url === target) reachable = false;
         await page.close();
