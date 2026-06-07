@@ -126,7 +126,7 @@ async function assertSuccess(page: PWPage, signal: string): Promise<boolean> {
 }
 
 /** Generic login: find email+password (on /login or /auth/signin), submit, wait for redirect off auth. */
-async function loginFlow(
+export async function loginFlow(
   page: PWPage,
   target: string,
   creds: { email: string; password: string }

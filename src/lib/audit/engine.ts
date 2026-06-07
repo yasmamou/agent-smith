@@ -16,7 +16,7 @@ import { formatDate } from "@/lib/utils";
 import { aiEnabled } from "@/lib/ai/provider";
 import type { SiteModel, WorkflowResult } from "@/types";
 
-async function crawl(config: AuditConfig): Promise<CrawlResult> {
+async function crawl(config: AuditConfig, creds?: { email: string; password: string }): Promise<CrawlResult> {
   const forced = process.env.AUDIT_ENGINE?.toLowerCase();
   const hasRemoteBrowser = !!(process.env.BROWSER_CDP_URL || process.env.BROWSERBASE_API_KEY);
   // A configured remote browser (self-hosted CDP or Browserbase) overrides a
@@ -28,7 +28,7 @@ async function crawl(config: AuditConfig): Promise<CrawlResult> {
   // failure so an audit always completes.
   try {
     const { playwrightCrawl } = await import("./playwright-runner");
-    const result = await playwrightCrawl(config);
+    const result = await playwrightCrawl(config, { creds });
     if (result.reachable && result.pages.length) return result;
     // unreachable with the real engine — keep the real result so we report it
     if (forced === "playwright") return result;
@@ -102,7 +102,9 @@ export interface RunAuditOptions {
  * audit conditions; unreachable targets are reported as findings).
  */
 export async function runAudit(config: AuditConfig, opts: RunAuditOptions = {}): Promise<AuditReport> {
-  const crawlResult = await crawl(config);
+  // When creds are provided, the crawl logs in and reads the AUTHENTICATED surface
+  // (internal pages), so findings + site-model + advisors see the real product.
+  const crawlResult = await crawl(config, opts.creds);
 
   // Run every analysis agent over the crawl.
   let findings: Finding[] = [];

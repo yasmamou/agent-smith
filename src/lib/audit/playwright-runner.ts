@@ -75,7 +75,10 @@ const PAGE_ANALYSIS_FN = `() => {
   };
 }`;
 
-export async function playwrightCrawl(config: AuditConfig): Promise<CrawlResult> {
+export async function playwrightCrawl(
+  config: AuditConfig,
+  opts: { creds?: { email: string; password: string } } = {}
+): Promise<CrawlResult> {
   const target = config.targetUrl;
   const https = target.startsWith("https://");
   const start = Date.now();
@@ -87,9 +90,31 @@ export async function playwrightCrawl(config: AuditConfig): Promise<CrawlResult>
   const pages: CrawlPage[] = [];
   const visited = new Set<string>();
   let reachable = true;
+  let authed = false;
   let cookiesRaw: Awaited<ReturnType<import("playwright-core").BrowserContext["cookies"]>> = [];
 
-  const pageBudget = config.mode === "quick" ? 3 : config.mode === "deep" ? 8 : 5;
+  // Authenticated crawl: log in first so every subsequent page (same context →
+  // same session cookies) is the REAL internal product, not the public wall.
+  const seed: string[] = [target];
+  if (opts.creds) {
+    try {
+      const lp = await context.newPage();
+      const { loginFlow } = await import("@/lib/journey/workflow-runner");
+      authed = await loginFlow(lp, target, opts.creds);
+      if (authed) {
+        const landing = lp.url().split("#")[0];
+        if (landing && landing !== target) seed.push(landing);
+      }
+      await lp.close().catch(() => {});
+    } catch {
+      /* login failed → fall back to a public crawl */
+    }
+  }
+
+  // Read more when authenticated ("tout lire") — the internal app has more surface.
+  const pageBudget = opts.creds && authed
+    ? config.mode === "quick" ? 8 : 16
+    : config.mode === "quick" ? 3 : config.mode === "deep" ? 8 : 5;
   const origin = (() => {
     try {
       return new URL(target).origin;
@@ -98,7 +123,7 @@ export async function playwrightCrawl(config: AuditConfig): Promise<CrawlResult>
     }
   })();
 
-  const queue: string[] = [target];
+  const queue: string[] = [...new Set(seed)];
 
   try {
     while (queue.length && pages.length < pageBudget) {
@@ -221,7 +246,7 @@ export async function playwrightCrawl(config: AuditConfig): Promise<CrawlResult>
     cookies,
     pages,
     techLeaks,
-    notes: [`Live crawl via Playwright — ${pages.length} page(s)`],
+    notes: [`Live crawl via Playwright — ${pages.length} page(s)${opts.creds ? (authed ? " · authentifié (pages internes)" : " · login échoué (surface publique)") : ""}`],
     durationMs: Date.now() - start,
   };
 }
