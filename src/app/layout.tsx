@@ -38,7 +38,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>{children}</body>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {children}
+        {/* Dogfood: Agent Smith tracks its own visits with its own snippet. */}
+        <script defer data-key="as_site_25b4db2d25f6b20f" src="/track.js" />
+      </body>
     </html>
   );
 }
