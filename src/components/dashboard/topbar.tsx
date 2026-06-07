@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Plus, Store, LogOut, KeyRound, Coins } from "lucide-react";
+import { LayoutDashboard, Plus, Store, LogOut, KeyRound, Coins, BarChart3 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/dashboard", label: "Audits", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/audits/new", label: "New audit", icon: Plus, exact: false },
   { href: "/marketplace", label: "Marketplace", icon: Store, exact: false },
+  { href: "/dashboard/analytics", label: "Visibilité", icon: BarChart3, exact: false },
   { href: "/dashboard/api", label: "API", icon: KeyRound, exact: false },
   { href: "/dashboard/billing", label: "Crédits", icon: Coins, exact: false },
 ];

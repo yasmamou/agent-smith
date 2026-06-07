@@ -137,7 +137,7 @@ export interface AgentProfile {
   checks?: string[];
   aiInstructions?: string;
   /** advisor lens this agent runs (Néo=strategy, Trinity=sales, Oracle=design, Morpheus=ceo). */
-  advisor?: "strategy" | "sales" | "design" | "ceo" | "seo";
+  advisor?: "strategy" | "sales" | "design" | "ceo" | "seo" | "analytics";
 }
 
 /** One strategic, product/platform-level recommendation (beyond tech bugs). */
@@ -154,6 +154,6 @@ export interface StrategyResult {
   thesis: string; // one-paragraph strategic read of the product
   topPriority: string; // the single highest-leverage move
   recommendations: StrategyRecommendation[];
-  lens?: "strategy" | "sales" | "design" | "ceo" | "seo"; // which advisor produced this
+  lens?: "strategy" | "sales" | "design" | "ceo" | "seo" | "analytics"; // which advisor produced this
   agentName?: string; // e.g. "Agent Néo" | "Agent Trinity" | "Agent Oracle" | "Agent Morpheus"
 }

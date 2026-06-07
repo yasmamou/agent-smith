@@ -501,7 +501,7 @@ function ReportView({
       {audit.strategy && (
         <div className="glass-bright mb-6 rounded-2xl p-5" style={{ borderColor: "#b388ff55" }}>
           <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold" style={{ color: "#c9abff" }}>
-            {audit.strategy.lens === "sales" ? "💎 Vente & conversion (CRO)" : audit.strategy.lens === "design" ? "🔮 Design & craft UI" : audit.strategy.lens === "ceo" ? "🕴️ Vision CEO & arbitrages" : audit.strategy.lens === "seo" ? "🔗 SEO & visibilité LLM (GEO)" : "🧠 Stratégie produit & plateforme"}
+            {audit.strategy.lens === "sales" ? "💎 Vente & conversion (CRO)" : audit.strategy.lens === "design" ? "🔮 Design & craft UI" : audit.strategy.lens === "ceo" ? "🕴️ Vision CEO & arbitrages" : audit.strategy.lens === "seo" ? "🔗 SEO & visibilité LLM (GEO)" : audit.strategy.lens === "analytics" ? "📊 Visibilité & mesure" : "🧠 Stratégie produit & plateforme"}
             {" — "}{audit.strategy.agentName || "Agent Néo"}
           </h3>
           <p className="text-sm text-fg-muted">{audit.strategy.thesis}</p>

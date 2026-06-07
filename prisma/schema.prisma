@@ -26,6 +26,7 @@ model User {
   audits       Audit[]
   customAgents CustomAgent[]
   creditTxns   CreditTxn[]
+  trackedSites TrackedSite[]
 }
 
 // Append-only ledger of every credit movement (grant / spend / refund / purchase).
@@ -147,6 +148,40 @@ model AuditScreenshot {
   audit Audit @relation(fields: [auditId], references: [id], onDelete: Cascade)
 
   @@index([auditId])
+}
+
+// Agent Smith Analytics — a site the user instruments with our snippet.
+model TrackedSite {
+  id        String   @id @default(cuid())
+  userId    String
+  domain    String
+  key       String   @unique // public site key embedded in the snippet
+  createdAt DateTime @default(now())
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hits PageHit[]
+
+  @@index([userId])
+}
+
+// One privacy-friendly pageview/event. No raw IP/cookie — only a daily-salted
+// visitor hash. `event` = "pageview" or a custom conversion (e.g. signup, pay).
+model PageHit {
+  id          String   @id @default(cuid())
+  siteKey     String
+  path        String
+  referrer    String?
+  country     String?
+  device      String?  // mobile | tablet | desktop
+  visitorHash String   // sha256(ip+ua+key+day) — rotates daily, no PII stored
+  isNew       Boolean  @default(false)
+  event       String   @default("pageview")
+  createdAt   DateTime @default(now())
+
+  site TrackedSite @relation(fields: [siteKey], references: [key], onDelete: Cascade)
+
+  @@index([siteKey, createdAt])
+  @@index([siteKey, visitorHash])
 }
 
 // Fixed-row semaphore for the remote browser (Browserbase free tier ≈ 1

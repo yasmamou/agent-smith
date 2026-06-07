@@ -10,7 +10,7 @@ import { aiComplete, parseAiJson, aiEnabled } from "@/lib/ai/provider";
  *   - design   → Agent Oracle  (visual design / UI craft)
  * AI-driven (Claude preferred); returns null when no AI key is configured.
  */
-export type AdvisorLens = "strategy" | "sales" | "design" | "ceo" | "seo";
+export type AdvisorLens = "strategy" | "sales" | "design" | "ceo" | "seo" | "analytics";
 
 interface LensConfig {
   agentName: string;
@@ -54,6 +54,21 @@ const LENSES: Record<AdvisorLens, LensConfig> = {
 - lead-capture (capter l'email tôt, lead magnet, retargeting)
 - urgency (raisons d'agir maintenant, sans dark patterns)`,
     levers: "hero-clarity|cta|social-proof|trust|funnel|friction|offer-pricing|value-prop|lead-capture|urgency",
+  },
+  analytics: {
+    agentName: "Agent Tank",
+    system:
+      "Tu es un expert mesure/analytics & growth-ops. Tu regardes si le produit SAIT qui sont ses utilisateurs et comment ils arrivent. Tu détectes l'absence d'instrumentation et tu dis EXACTEMENT quoi mesurer (pageviews, sources d'acquisition, funnel, conversions, rétention) et quel dashboard de visibilité construire. Termine toujours en proposant : « Agent Smith peut héberger ton dashboard de visibilité — ajoute le snippet ». Concret et priorisé.",
+    task: "Audit de MESURE / VISIBILITÉ : qui sont les users, par où ils arrivent, qu'est-ce qui n'est pas mesuré, et quel dashboard construire.",
+    checklist: `- instrumentation (y a-t-il un tracker ? pageviews, events ? sinon c'est l'aveugle)
+- acquisition (sources/canaux : SEO, social, referral, direct — sait-on d'où viennent les users ?)
+- funnel (étapes visite → signup → activation → paiement ; où mesurer le drop-off)
+- conversions (events clés à tracker : signup, pay, action de valeur)
+- personas (segments d'utilisateurs, pays, appareil — qui sont-ils vraiment ?)
+- retention (nouveaux vs récurrents, cohortes)
+- north-star (LA métrique à suivre en continu)
+- dashboard (quel tableau de bord de visibilité monter ; proposer celui d'Agent Smith)`,
+    levers: "instrumentation|acquisition|funnel|conversions|personas|retention|north-star|dashboard",
   },
   seo: {
     agentName: "Agent Link",
