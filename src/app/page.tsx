@@ -2,6 +2,7 @@ import { Navbar } from "@/components/landing/navbar";
 import { Hero } from "@/components/landing/hero";
 import { HowItWorks, Features, AgentsTeaser } from "@/components/landing/sections";
 import { SampleReport, Pricing, CtaFooter } from "@/components/landing/showcase";
+import { LandingJsonLd } from "@/components/landing/json-ld";
 import { detectLocale, getDictionary } from "@/lib/i18n";
 
 export default async function LandingPage() {
@@ -10,6 +11,7 @@ export default async function LandingPage() {
 
   return (
     <main>
+      <LandingJsonLd />
       <Navbar t={t} locale={locale} />
       <Hero t={t} />
       <HowItWorks t={t} />

@@ -5,17 +5,32 @@ import "./globals.css";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
+const BASE = process.env.NEXT_PUBLIC_BASE_URL || "https://agent-smith-iota.vercel.app";
+
 export const metadata: Metadata = {
-  title: "Agent Smith — Your AI QA agent after every vibe-coded deploy",
+  metadataBase: new URL(BASE),
+  title: {
+    default: "Agent Smith — AI QA agent that audits your app after every deploy",
+    template: "%s · Agent Smith",
+  },
   description:
-    "Agent Smith runs autonomous QA agents over your web app, finds functional, UI, UX, security and performance issues, and hands you a ready-to-paste fix prompt for Claude Code or Cursor.",
-  keywords: ["QA", "AI agent", "automated testing", "Claude Code", "Cursor", "vibe coding", "audit"],
+    "Paste a URL: AI agents crawl your live app, test the flows, and hand you a scored report + a fix prompt ready for Claude Code or Cursor. Free instant audit, no signup.",
+  keywords: ["AI QA automation", "automated website QA", "AI website testing", "QA agent", "Claude Code", "Cursor", "vibe coding", "web app audit"],
+  alternates: { canonical: "/" },
   openGraph: {
     title: "Agent Smith — Autonomous QA for vibe-coded apps",
     description:
       "Paste a URL. Agents explore, test and report. Get an actionable fix prompt for Claude Code / Cursor.",
     type: "website",
-    images: [{ url: "/agent-smith-full.png", width: 1254, height: 1254, alt: "Agent Smith" }],
+    url: BASE,
+    siteName: "Agent Smith",
+    images: [{ url: "/agent-smith-og.png", width: 1200, height: 630, alt: "Agent Smith — AI QA agent" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Agent Smith — Autonomous QA for vibe-coded apps",
+    description: "Paste a URL. Agents test your app and hand you a fix prompt for Claude Code / Cursor.",
+    images: ["/agent-smith-og.png"],
   },
   icons: { icon: "/icon.png" },
 };

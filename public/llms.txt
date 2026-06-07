@@ -1,0 +1,31 @@
+# Agent Smith
+
+> Agent Smith is an AI QA agent that audits any deployed web app after a deploy:
+> a swarm of agents crawls the site with a real browser, tests user flows, and
+> returns a scored report plus a ready-to-paste fix prompt for Claude Code or Cursor.
+
+Agent Smith runs autonomous quality-assurance agents over a website you give it.
+It performs a real browser crawl, runs functional, UI, UX, security-hygiene and
+performance checks, infers the app's primary workflow and actually tries to
+complete it (including authenticated, form-filling "write-path" tests), then
+produces per-dimension scores, prioritised findings with evidence and a
+consolidated fix prompt. It can run from the web app, a REST API, an MCP server,
+a CLI, or a post-deploy webhook (audit + regression diff on every deploy).
+
+## What it does
+- Audit types: technical · persona journey · authenticated write-path · custom marketplace agent
+- Real-browser engine (vendor-neutral CDP, self-hostable) with an honest mock fallback
+- Intelligence layer: site-model inference + agentic workflow test + workflow-health score
+- Advisor agents (AI): strategy (Néo), sales/CRO (Trinity), design/UI (Oracle), CEO (Morpheus), SEO+GEO (Link)
+- Outputs: scores, findings (evidence/repro/cause/fix), screenshots, PDF, fix prompt, shareable report + badge
+- Credits-based, with a no-signup instant audit from the homepage
+
+## Key pages
+- Home / free instant audit: https://agent-smith-iota.vercel.app/
+- Agent marketplace: https://agent-smith-iota.vercel.app/marketplace
+
+## Tech
+Next.js, runs on Vercel. Works with Cursor, Claude Code, Lovable, Bolt, v0.
+
+## Contact
+Repository: https://github.com/yasmamou/agent-smith
