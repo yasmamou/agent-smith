@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { MatrixRain } from "@/components/matrix-rain";
+import { MatrixGlobe } from "@/components/matrix-globe";
 import { AuditTerminal } from "./audit-terminal";
 import { TryAudit } from "./try-audit";
 import type { Dict } from "@/lib/i18n";
@@ -12,6 +13,7 @@ export function Hero({ t }: { t: Dict }) {
     <section className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 bg-grid" />
       <MatrixRain className="pointer-events-none absolute inset-0 h-full w-full" opacity={0.12} />
+      <MatrixGlobe className="pointer-events-none absolute -right-24 top-1/2 hidden h-[560px] w-[560px] -translate-y-1/2 opacity-60 [mask-image:radial-gradient(circle,black_55%,transparent_75%)] lg:block" />
 
       <div className="relative mx-auto grid max-w-6xl gap-12 px-5 pb-20 pt-16 lg:grid-cols-2 lg:items-center lg:pt-24">
         <div>

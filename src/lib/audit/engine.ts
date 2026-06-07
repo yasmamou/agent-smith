@@ -91,7 +91,7 @@ export interface RunAuditOptions {
   /** also produce a strategic platform analysis (Agent Néo / strategist) */
   strategy?: boolean;
   /** advisor lens: strategy (Néo) | sales (Trinity) | design (Oracle) | ceo (Morpheus) */
-  advisor?: "strategy" | "sales" | "design" | "ceo";
+  advisor?: "strategy" | "sales" | "design" | "ceo" | "seo";
 }
 
 /**

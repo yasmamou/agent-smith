@@ -10,7 +10,7 @@ import { aiComplete, parseAiJson, aiEnabled } from "@/lib/ai/provider";
  *   - design   → Agent Oracle  (visual design / UI craft)
  * AI-driven (Claude preferred); returns null when no AI key is configured.
  */
-export type AdvisorLens = "strategy" | "sales" | "design" | "ceo";
+export type AdvisorLens = "strategy" | "sales" | "design" | "ceo" | "seo";
 
 interface LensConfig {
   agentName: string;
@@ -54,6 +54,22 @@ const LENSES: Record<AdvisorLens, LensConfig> = {
 - lead-capture (capter l'email tôt, lead magnet, retargeting)
 - urgency (raisons d'agir maintenant, sans dark patterns)`,
     levers: "hero-clarity|cta|social-proof|trust|funnel|friction|offer-pricing|value-prop|lead-capture|urgency",
+  },
+  seo: {
+    agentName: "Agent Link",
+    system:
+      "Tu es un expert SEO + GEO/AEO senior. Tu couvres DEUX fronts : (1) SEO Google classique (mots-clés, on-page, technique, contenu, mots-clés des concurrents) et (2) GEO/AEO = être cité/recommandé par les LLM (ChatGPT, Claude, Perplexity, Google AI Overviews) via llms.txt, données structurées et contenu citable. Sois concret et actionnable. Pour les mots-clés/concurrents, propose des cibles précises (primaires, secondaires, longue traîne) en notant que ce sont des ESTIMATIONS (brancher une API SEO pour les volumes réels).",
+    task: "Audit SEO + GEO/AEO de ce site : on-page, technique, mots-clés/concurrents, et visibilité dans les réponses des LLM.",
+    checklist: `- onpage (title 50-60 car., meta description 150-160, H1 unique, hiérarchie Hn)
+- keywords (mots-clés cibles primaires/secondaires/longue traîne pour ce produit)
+- competitors (sur quels mots-clés les concurrents se positionnent ; angles à prendre)
+- content (pages/articles à créer pour capter l'intention de recherche ; content gaps)
+- technical (robots.txt, sitemap.xml, canonical, vitesse, mobile, indexabilité)
+- structured-data (JSON-LD schema.org : Organization, Product, FAQ, SoftwareApplication)
+- social-meta (Open Graph + Twitter cards pour le partage)
+- geo-aeo (être cité par les LLM : llms.txt, réponses factuelles claires, autorité, mentions)
+- international (hreflang si multilingue)`,
+    levers: "onpage|keywords|competitors|content|technical|structured-data|social-meta|geo-aeo|international",
   },
   ceo: {
     agentName: "Agent Morpheus",
@@ -115,6 +131,18 @@ export async function generateAdvice(
     .join("\n");
   const langHint = detectLanguages(crawl);
 
+  // For the SEO lens, gather REAL on-page/technical signals to ground the advice.
+  let seoBlock = "";
+  if (lens === "seo") {
+    try {
+      const { gatherSeoSignals, summarizeSeo } = await import("@/lib/seo/signals");
+      const signals = await gatherSeoSignals(crawl.target);
+      seoBlock = `\n\nSIGNAUX SEO/GEO RÉELS (observés):\n${summarizeSeo(signals)}`;
+    } catch {
+      /* signals are a bonus — proceed without them */
+    }
+  }
+
   const prompt = `${cfg.task}
 
 MODÈLE DU SITE (inféré):
@@ -129,7 +157,7 @@ ${pages || "(aucune)"}
 SIGNAUX RELEVÉS (UX/UI/fonctionnel):
 ${uxSignals || "(aucun)"}
 
-INDICE LANGUE/I18N: ${langHint}
+INDICE LANGUE/I18N: ${langHint}${seoBlock}
 
 CHECKLIST À PASSER EN REVUE (évalue chacune, retiens celles à fort levier) :
 ${cfg.checklist}

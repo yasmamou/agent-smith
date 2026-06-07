@@ -81,7 +81,7 @@ async function main() {
     console.error("   Real local Chromium · no cloud · this may take 20–90s…\n");
   }
 
-  const advisor = has("--ceo") ? "ceo" : has("--sales") ? "sales" : has("--design") ? "design" : has("--strategy") ? "strategy" : undefined;
+  const advisor = has("--seo") ? "seo" : has("--ceo") ? "ceo" : has("--sales") ? "sales" : has("--design") ? "design" : has("--strategy") ? "strategy" : undefined;
   const report = await runAudit(config, { allowWrites, creds, runWorkflow: true, advisor });
 
   if (jsonOnly) {
