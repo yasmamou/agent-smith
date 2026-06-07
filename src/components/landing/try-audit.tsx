@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Loader2, ShieldCheck } from "lucide-react";
+import { ArrowRight, Loader2, ShieldCheck, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Dict } from "@/lib/i18n";
 
@@ -73,6 +73,13 @@ export function TryAudit({ t }: { t: Dict }) {
         </Button>
       </form>
       <p className="mt-2 text-xs text-fg-faint">{tr.hint}</p>
+      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-muted">
+        {tr.trust.map((item) => (
+          <li key={item} className="inline-flex items-center gap-1.5">
+            <Check className="size-3.5 text-matrix" /> {item}
+          </li>
+        ))}
+      </ul>
 
       {error && (
         <p className="mt-3 rounded-lg border border-critical/40 bg-critical/10 px-3 py-2 text-sm text-critical">{error}</p>

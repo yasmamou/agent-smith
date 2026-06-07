@@ -10,7 +10,7 @@ import { aiComplete, parseAiJson, aiEnabled } from "@/lib/ai/provider";
  *   - design   → Agent Oracle  (visual design / UI craft)
  * AI-driven (Claude preferred); returns null when no AI key is configured.
  */
-export type AdvisorLens = "strategy" | "sales" | "design";
+export type AdvisorLens = "strategy" | "sales" | "design" | "ceo";
 
 interface LensConfig {
   agentName: string;
@@ -54,6 +54,22 @@ const LENSES: Record<AdvisorLens, LensConfig> = {
 - lead-capture (capter l'email tôt, lead magnet, retargeting)
 - urgency (raisons d'agir maintenant, sans dark patterns)`,
     levers: "hero-clarity|cta|social-proof|trust|funnel|friction|offer-pricing|value-prop|lead-capture|urgency",
+  },
+  ceo: {
+    agentName: "Agent Morpheus",
+    system:
+      "Tu es le CEO/fondateur de ce produit (vision exécutive). Tu ne listes PAS des tâches : tu ARBITRES. Tu décides où mettre l'énergie ce trimestre, ce qu'il faut construire / tuer / reporter, où sont le plus gros risque et le plus gros pari. Tu raisonnes business : marché, avantage défendable (moat), unit economics, focus. Tranché, peu d'items, à fort enjeu. Pas de généralités.",
+    task: "Revue CEO de ce produit : LA priorité du trimestre, les arbitrages, les risques et le pari à faire.",
+    checklist: `- focus (LA chose à faire ce trimestre ; ce qu'on arrête / reporte)
+- market (taille, segment à posséder, timing)
+- moat (avantage défendable, ce qui est dur à copier, données/réseau)
+- business-model (unit economics, marge, CAC/LTV, pricing power)
+- risk (le risque #1 qui peut tuer le produit ; dépendances)
+- bet (le pari à fort upside à tenter maintenant)
+- build-vs-kill (fonctionnalités à doubler / à supprimer)
+- team-ops (ce qu'il faut pour exécuter : recrutement, partenariats)
+- north-star (LA métrique qui compte)`,
+    levers: "focus|market|moat|business-model|risk|bet|build-vs-kill|team-ops|north-star",
   },
   design: {
     agentName: "Agent Oracle",

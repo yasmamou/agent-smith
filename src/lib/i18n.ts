@@ -30,7 +30,7 @@ export interface Dict {
   nav: { how: string; features: string; agents: string; marketplace: string; pricing: string; signin: string; cta: string };
   hero: {
     badge: string; h1: string; h1accent: string; plain: string; support: string;
-    placeholder: string; button: string; auditing: string; hint: string; orSample: string; works: string;
+    placeholder: string; button: string; auditing: string; hint: string; orSample: string; works: string; trust: string[];
     previewLabel: string; simulated: string; teaserMore: string; teaserReady: string; viewFull: string; netErr: string; auditFail: string;
   };
   how: { eyebrow: string; title: string; sub: string; steps: { title: string; body: string }[] };
@@ -53,6 +53,7 @@ const en: Dict = {
     hint: "No signup · instant preview · full report + fix prompt are free with an account",
     orSample: "or see a sample report →",
     works: "Works with Cursor · Claude Code · Lovable · Bolt · v0 · Antigravity",
+    trust: ["No credit card", "Non-destructive checks", "Credentials encrypted, never stored", "Fix prompt ready for your editor"],
     previewLabel: "Audit preview", simulated: "⚠️ Simulated preview (no real browser available) — the full audit uses a real browser.",
     teaserMore: "more findings", teaserReady: "Full report, screenshots and fix prompt ready to paste into Claude Code.",
     viewFull: "See the full report", netErr: "Network unavailable, try again.", auditFail: "Audit failed.",
@@ -113,6 +114,7 @@ const fr: Dict = {
     hint: "Sans inscription · aperçu instantané · le rapport complet + le prompt correctif sont gratuits avec un compte",
     orSample: "ou regarde un exemple de rapport →",
     works: "Compatible Cursor · Claude Code · Lovable · Bolt · v0 · Antigravity",
+    trust: ["Sans carte bancaire", "Tests non destructifs", "Identifiants chiffrés, jamais stockés", "Prompt correctif prêt pour ton éditeur"],
     previewLabel: "Aperçu de l'audit", simulated: "⚠️ Aperçu simulé (navigateur réel indisponible) — l'audit complet utilisera un vrai navigateur.",
     teaserMore: "autres findings", teaserReady: "Rapport complet, captures et prompt correctif prêts à coller dans Claude Code.",
     viewFull: "Voir le rapport complet", netErr: "Réseau indisponible, réessaie.", auditFail: "Échec de l'audit.",

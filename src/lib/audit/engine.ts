@@ -90,8 +90,8 @@ export interface RunAuditOptions {
   allowWrites?: boolean;
   /** also produce a strategic platform analysis (Agent Néo / strategist) */
   strategy?: boolean;
-  /** advisor lens to run: strategy (Néo) | sales (Trinity) | design (Oracle) */
-  advisor?: "strategy" | "sales" | "design";
+  /** advisor lens: strategy (Néo) | sales (Trinity) | design (Oracle) | ceo (Morpheus) */
+  advisor?: "strategy" | "sales" | "design" | "ceo";
 }
 
 /**
