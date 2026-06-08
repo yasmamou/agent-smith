@@ -138,7 +138,18 @@ export async function loginFlow(
       if (await e.count().catch(() => 0)) { await e.click().catch(() => {}); await page.waitForTimeout(400); return; }
     }
   };
-  for (const path of ["/login", "/auth/signin", "/signin", "/connexion", "/sign-in", "/se-connecter"]) {
+  // Success = the login form disappeared (more reliable than URL on SPAs that
+  // keep ?redirect=/… or an auth keyword in the URL after login).
+  const loggedIn = async () => {
+    if ((await page.locator('input[type="password"]').count().catch(() => 1)) === 0) return true;
+    for (const re of [/se d[ée]connecter/i, /d[ée]connexion/i, /mon compte/i, /log\s?out/i, /sign out/i]) {
+      if (await page.getByRole("button", { name: re }).first().count().catch(() => 0)) return true;
+      if (await page.getByRole("link", { name: re }).first().count().catch(() => 0)) return true;
+    }
+    return false;
+  };
+
+  for (const path of ["/login", "/connexion", "/auth/signin", "/signin", "/sign-in", "/se-connecter"]) {
     try {
       await page.goto(new URL(path, target).href, { waitUntil: "domcontentloaded", timeout: 20000 });
     } catch {
@@ -146,20 +157,34 @@ export async function loginFlow(
     }
     await page.waitForLoadState("networkidle", { timeout: 6000 }).catch(() => {});
     await page.waitForTimeout(900);
+    // SPAs append ?redirect=<path> — that bounces post-login back to an auth
+    // route. Re-load the CLEAN auth URL so login lands on the app/home instead.
+    if (/[?&]redirect=/i.test(page.url())) {
+      const clean = page.url().split("?")[0];
+      await page.goto(clean, { waitUntil: "domcontentloaded", timeout: 15000 }).catch(() => {});
+      await page.waitForTimeout(700);
+    }
     await dismissConsent();
     const email = page.locator('input[type="email"], input[name*="mail" i]').first();
     const pass = page.locator('input[type="password"]').first();
     if (!(await email.count().catch(() => 0)) || !(await pass.count().catch(() => 0))) continue;
+    // A form is here — attempt login ONCE (don't hammer other paths → throttling).
     await email.fill(creds.email).catch(() => {});
     await pass.fill(creds.password).catch(() => {});
     await dismissConsent(); // banner can re-appear / still cover the button
-    let submit = page.getByRole("button", { name: /^\s*(se connecter|sign in|log in|connexion|continuer)\s*$/i }).first();
-    if (!(await submit.count().catch(() => 0))) submit = page.getByRole("button", { name: /connect|sign|login|valider/i }).first();
+    // Pick the FORM's submit button, not the nav "Connexion" link. Note: the
+    // submit regex deliberately excludes bare "connexion" (that's the nav menu).
+    let submit = page.locator('form button[type="submit"], form input[type="submit"]').first();
+    if (!(await submit.count().catch(() => 0)))
+      submit = page.getByRole("button", { name: /^\s*(se connecter|sign in|log\s?in|continuer|valider|s'identifier)\s*$/i }).first();
     if (await submit.count().catch(() => 0)) await submit.click({ timeout: 5000 }).catch(() => {});
     else await pass.press("Enter").catch(() => {});
-    await page.waitForURL((u) => !/\/(login|signin|sign-in|auth|connexion|se-connecter)/i.test(u.toString()), { timeout: 18000 }).catch(() => {});
-    await page.waitForTimeout(1000);
-    if (!/\/(login|signin|sign-in|auth|connexion|se-connecter)/i.test(page.url())) return true;
+    // wait until the form disappears (success) or 15s
+    for (let i = 0; i < 15; i++) {
+      await page.waitForTimeout(1000);
+      if (await loggedIn()) return true;
+    }
+    return false; // form found, login attempted once, didn't take → stop (avoid throttling)
   }
   return false;
 }
