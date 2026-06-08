@@ -131,29 +131,35 @@ export async function loginFlow(
   target: string,
   creds: { email: string; password: string }
 ): Promise<boolean> {
-  for (const path of ["/login", "/auth/signin", "/signin", "/connexion"]) {
+  // Cookie/consent banners can intercept the submit click — dismiss robustly.
+  const dismissConsent = async () => {
+    for (const re of [/tout accepter/i, /^accepter$/i, /j'accepte/i, /^accept(\s+all)?$/i, /tout refuser/i, /^refuser$/i, /^ok$/i, /j'ai compris/i]) {
+      const e = page.getByRole("button", { name: re }).first();
+      if (await e.count().catch(() => 0)) { await e.click().catch(() => {}); await page.waitForTimeout(400); return; }
+    }
+  };
+  for (const path of ["/login", "/auth/signin", "/signin", "/connexion", "/sign-in", "/se-connecter"]) {
     try {
       await page.goto(new URL(path, target).href, { waitUntil: "domcontentloaded", timeout: 20000 });
     } catch {
       continue;
     }
-    await page.waitForTimeout(700);
-    for (const re of [/^tout accepter$|^accepter$/i]) {
-      const e = page.getByRole("button", { name: re }).first();
-      if (await e.count().catch(() => 0)) await e.click().catch(() => {});
-    }
+    await page.waitForLoadState("networkidle", { timeout: 6000 }).catch(() => {});
+    await page.waitForTimeout(900);
+    await dismissConsent();
     const email = page.locator('input[type="email"], input[name*="mail" i]').first();
     const pass = page.locator('input[type="password"]').first();
     if (!(await email.count().catch(() => 0)) || !(await pass.count().catch(() => 0))) continue;
     await email.fill(creds.email).catch(() => {});
     await pass.fill(creds.password).catch(() => {});
+    await dismissConsent(); // banner can re-appear / still cover the button
     let submit = page.getByRole("button", { name: /^\s*(se connecter|sign in|log in|connexion|continuer)\s*$/i }).first();
     if (!(await submit.count().catch(() => 0))) submit = page.getByRole("button", { name: /connect|sign|login|valider/i }).first();
-    if (await submit.count().catch(() => 0)) await submit.click().catch(() => {});
+    if (await submit.count().catch(() => 0)) await submit.click({ timeout: 5000 }).catch(() => {});
     else await pass.press("Enter").catch(() => {});
-    await page.waitForURL((u) => !/\/(login|signin|auth|connexion)/i.test(u.toString()), { timeout: 18000 }).catch(() => {});
+    await page.waitForURL((u) => !/\/(login|signin|sign-in|auth|connexion|se-connecter)/i.test(u.toString()), { timeout: 18000 }).catch(() => {});
     await page.waitForTimeout(1000);
-    return !/\/(login|signin|auth|connexion)/i.test(page.url());
+    if (!/\/(login|signin|sign-in|auth|connexion|se-connecter)/i.test(page.url())) return true;
   }
   return false;
 }
